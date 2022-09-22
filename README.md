@@ -108,6 +108,14 @@ Console.WriteLine(stu.Name);
 Output
 
 ```
+{
+    "Name": "Andy",
+    "Age": 200,
+    "Gender": 1,
+    "Hobby": [
+        "Cooking", "Sports"
+    ]
+}
 Cooking
 Jack
 ```
