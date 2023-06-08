@@ -97,3 +97,16 @@ a:hover{
 .img_good{
     animation: good 2s infinite;
 }
+.span_note{
+    display: inline-block;
+    background-color: goldenrod;
+    font-size: 12px;
+    color: white;
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    transform: translate(-50%, 0);
+    padding: 2px 10px;
+    border-radius: 0px 0px 5px 5px;
+    white-space: nowrap;
+}

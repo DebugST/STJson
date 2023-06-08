@@ -4,11 +4,13 @@
 
 `STJson` is a `Json` parsing library based on the `MIT` open source protocol . The library is purely native implementation does not rely on any library , so it is very light and convenient , and powerful .
 
-Full tutorial:
+HOME: [https://DebugST.github.io/STJson](https://DebugST.github.io/STJson)
 
-CN: [https://DebugST.github.io/STJson/tutorial_cn.html](https://DebugST.github.io/STJson/tutorial_cn.html)
+NuGet:
 
-EN: [https://DebugST.github.io/STJson/tutorial_en.html](https://DebugST.github.io/STJson/tutorial_en.html)
+```
+dotnet add package STLib.Json --version 1.0.0
+```
 
 Unlike other `Json` libraries, `STJson` not has objects similar to `JObject` and `JArray`. Just `STJson`. which can be either `Object` or `Array`. `STJson` has two indexers: `STJson[int]` and `STJson[string]`. The type of the current `Json` object can be determined by `STJson.ValueType`.
 

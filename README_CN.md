@@ -4,13 +4,9 @@
 
 `STJson`是一款基于`MIT`开源协议的`Json`解析库。该库纯原生实现不依赖任何库，所以非常轻量便捷，且功能强大。
 
-完整教程:
+主页: [https://DebugST.github.io/STJson](https://DebugST.github.io/STJson)
 
-HOME: [https://DebugST.github.io/STJson](https://DebugST.github.io/STJson)
-
-CN: [https://DebugST.github.io/STJson/tutorial_cn.html](https://DebugST.github.io/STJson/tutorial_cn.html)
-
-EN: [https://DebugST.github.io/STJson/tutorial_en.html](https://DebugST.github.io/STJson/tutorial_en.html)
+NuGet: [https://www.nuget.org/packages/STLib.Json](https://www.nuget.org/packages/STLib.Json)
 
 `STJson`不同与其他`Json`库拥有类似与`JObject`和`JArray`的对象。在`STJson`中仅一个`STJson`对象，它既可以是`Object`，也可以是`Array`。`STJson`拥有两个索引器：`STJson[int]`和`STJson[string]`。可通过`STJson.ValueType`确定当前`Json`对象的类型。
 

@@ -10,13 +10,22 @@
     <PackageProjectUrl>https://debugst.github.io/STJson</PackageProjectUrl>
     <PackageIcon>STJson.icon.png</PackageIcon>
     <PackageTags>json;stlib;debugst;</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>STJson is a Json parsing library based on the MIT open source protocol . The library is purely native implementation does not rely on any library , so it is very light and convenient , and powerful .</Description>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>Support Json serialization and deserialization.
+Support JsonPath syntax.
+Simple data aggregation processing.</PackageReleaseNotes>
+    <Copyright>Copyright 2022 DebugST</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\sources\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Include="..\sources\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
