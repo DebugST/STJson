@@ -1,0 +1,1961 @@
+﻿#T STLib.STJson
+
+#O 简介
+`STLib.STJson`是一款基于`MIT`开源协议的`Json`解析库。由[DebugST](https://github.com/DebugST)开发，该库纯原生实现不依赖任何库，所以非常轻量便捷，且功能强大。由于没用任何依赖纯原生构建，它可以很容易移植到其他编程语言中。当然由于作者懒的一批，这个概率不是很大。
+在设计`STJson`的时候作者没有任何的异议，毕竟`Json`的数据格式不存在有争议的地方，当在设计`STJsonPath`的时候，作者犹豫了，因为作者发现很多存在争议的地方，且无法找到关于`JsonPath`的正式`RFC`文档，仅仅找到一份草案：
+[JSONPath: Query expressions for JSON](https://www.ietf.org/archive/id/draft-ietf-jsonpath-base-03.html)
+虽然草案中一些疑惑也能得到解决，但是作者仍有一些疑惑，毕竟不是正式的文档。在开发之前作者也好奇其他`JsonPath`的开源库，对于有争议的地方其他库是如何解决的。但很遗憾，问题依然存在。似乎没有库愿意搭理这份草案。既然`JsonPath`还没有正式的`RFC`文档，那么作者也想自立门户。但作者并不会不搭理这份草案，只能说作者会尽可能兼容草案的同时，还会加入一些作者自己的想法。
+
+#O 路劲疑问
+`JsonPath`是源自于`XPath`的使用方式，总所周知`XPath`是`XML`路径语言（XML Path Language），它是一种用来确定`XML`文档中某部分位置的语言。显而易见`JsonPath`是用于`Json`的。它们两种几乎使用方式相同，但是`XML`和`Json`两种数据格式的差异，必然会有存在不同的地方。
+比如在`XML`的元素名中是不存在特殊字符的，可是`Json`的`Key`可以是任意的字符串，假如有一下`Json`数据：
+#CS cs
+{ "aa": { "bb": "cc" } }
+#CE
+在`JsonPath`中我们可以通过路径`aa.bb`获取到值`cc`，这没有任何问题，如果`Json`数据换成下面的呢：
+#CS cs
+{ "a.a": { "bb": "cc" } }
+#CE
+很显然通过`a.a.bb`是无法得到值`cc`的。或许通常情况下`Json`都表示某个对象，而对象是不会存在这么奇怪的属性的。但是对于`Json`的数据格式而言，它的`Key`可以是任意字符。即便在浏览器中通过`{OBJ_NAME}.a.a.bb`也是只会得到报错。但是浏览器访问`Json`元素的方式并不是只用通过`.`的方式去获取，还有索引器`{OBJ_NAME}['a.a']['bb']`是可以得到正确值的。
+在`STJsonPath`中允许使用`'`或者`"`，在词法分析器(STJsonPathTokenizer.cs)中会将其标记为`String`，若此字符串在非表达式的作用域内，解析器(STJsonPathParser.cs)会将其重新标记为`Property`作为索引使用，从而避免特殊字符串无法处理的情况，字符串支持`\\`进行转义。所以在`STJsonPath`中可以使用`'a.a'.bb`获取到正确值。而在草案中也确实提到过类似的处理方式。
+
+#O 表达式疑问
+在草案中有提到支持表达式，且表达式有两种类型，`()`和`?()`。分别代表`普通表达式`和`过滤表达式`。而按照作者的理解，`普通表达式`用于计算出一个值，且将这个值作为`JsonPath`的一部分，比如在很多案例中可以看到的`$.books[(@.length - 1)]`。在执行`JsonPath`的时候会可能对`Json`元素进行层层递归，其中`@`是一个动态变量，表示递归过程中当前正在处理的`Json`元素，根据表达式的表面意思是想获取`books`中的倒数第一个元素。
+但是`@.length`如何被执行？`length`是哪里来的？如果`@`是一个数组，作者暂且可以理解为是在对数组求长度？可是如果`@`是一个对象呢？
+既然是表达式，那么可以在`()`中写什么样的语法呢？语法规呢？关于这些疑问作者都采用了自己的实现方式，将在稍后的教程中介绍。
+
+
+#T STJson API
+#O 数据类型关系
+
+#TS .Net|STJsonValueType|.Net|STJsonValueType
+byte|Long|sbyte|Long
+short|Long|ushort|Long
+int|Long|uint|Long
+long|Long|ulong|Long
+float|Double|double|Double
+decimal|Double|bool|Boolean
+char|String|string|String
+DateTime|String|enum|Long or String
+Point|Array|PointF|Array
+Size|Array|SizeF|Array
+Rectangle|Array|RectangleF|Array
+Color|Array|DataTable|Object
+Array|Array|ICollection|Array
+IDectionary|Object|object|Object
+#TE
+
+`STJson`涵盖了常见的基本数据类型，即便不包含在其中，那么最后也会通过执行反射递归对象的属性。
+
+#O 静态函数
+
+#HS goldenrod|black
+下列中`(+n)`表示有多个重载
+#HE
+
+#TS return|signature|note
+string|Serialize(+n)|将`object`对象序列化为字符串。
+STJson|Deserialize(string)|将字符串转换为`STJson`对象序。
+T|Deserialize<T>(+n)|将对象或字符串转换为目标对象。
+STJson|STJson CreateObject()|创建一个空白对象。
+STJson|STJson CreateArray(params object[])|创建一个数组对象。
+STJson|FromObject(+n)|将一个对象转换为`STJson`。
+string|Format(+n)|格式化一个`Json`字符串。
+void|AddCustomConverter(+n)|自定义类型转换器。
+void|RemoveCustomConverter(+n)|移除自定义转换器。
+
+#TE
+
+#O 非静态函数
+
+#TS return|signature|note
+STJson|SetItem(+n)|向对象中添加一个键值对，并返回自己。
+STJson|SetKey(string)|向对象中添加一个`key`，并返回目标对象。
+void|SetValue(+n)|设置目标对象的值。
+STJson|Delete(string)|从对象中移除一个`key`，并返回目标对象。
+STJson|Append(+n)|向数组对象中添加一个或一些元素，并返回自己。
+STJson|Insert(+n)|向数组对象中插入一个元素，并返回自己。
+STJson|RemoveAt(int nIndex)|从数组对象中删除一个索引。
+void|Clear()|清空所有子元素。
+IEnumerator<STJson>|GetEnumerator()|获取当前元素中所有子元素。
+STJson|Clone|克隆当前元素。
+#TE
+
+#O 扩展函数
+
+#TS return|signature|note
+STJson|Set(+n)|根据路径(STJsonPath)设置对象。
+string|GetValue(+n)|获取对象的字符串值(仅值类型)
+T|GetValue<T>(+n)|获取对象值(仅值类型)
+STJson|Select(+n)|在对象中进行数据筛选。
+STJson|SelectFirst(+n)|在对象中进行数据筛选，并选中第一个结果。
+STJson|SelectLast(+n)|在对象中进行数据筛选，并选中最后一个结果。
+STJson|Group(+n)|对指定字段进行分组。
+STJson|Terms(+n)|对指定字段的值进行个数统计。
+STJson|Sort(+n)|对指定字段进行排序处理。
+STJson|Min(+n)|统计指定字段的最小值。
+STJson|Max(+n)|统计指定字段的最大值。
+STJson|Sum(+n)|统计指定字段的总数。
+STJson|Avg(+n)|统计指定字段的平均值。
+#TE
+
+#O 字段
+
+#TS type|name|note
+string|Key|当前`STJson`父元素的`Key`
+object|Value|当前`STJson`的值，若当前`STJson`不是值类型则为`null`
+bool|IsNullObject|当前`STJson`是否为空元素，即无法确定当前`STJson`值的数据类型。
+int|Count|当前`STJson`所包含子元素的个数。
+STJsonValueType|ValueType|(枚举)当前元素的数据类型。
+#TE
+`STJsonValueType`为以下值：
+`Undefined` `String` `Boolean` `Long` `Double` `Datetime` `Array` `Object`
+
+#O 索引器
+
+#US
+STJson STJson[int]
+STJson STJson[string]
+#UE
+
+#T STJson [基本应用]
+
+`STJson`是一个中间数据类型，它是`string`与`object`之间的桥梁，使用非常便捷，比如：
+#CS cs
+var st_json = new STJson()          
+    .SetItem("number", 0)               // 函数返回自身 所以可以连续操作
+    .SetItem("boolean", true)
+    .SetItem("string", "this is string")
+    .SetItem("datetime", DateTime.Now)
+    .SetItem("array_1", STJson.CreateArray(123, true, "string"))
+    .SetItem("array_2", STJson.FromObject(new object[] { 123, true, "string" }))
+    .SetItem("object", new { key = "this is a object" })
+    .SetItem("null", obj: null);
+st_json.SetKey("key").SetValue("this is a test");
+Console.WriteLine(st_json.ToString(4)); // 4 -> indentation space count
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "number": 0,
+    "boolean": true,
+    "string": "this is string",
+    "datetime": "2023-04-22T21:12:30.6109410+08:00",
+    "array_1": [
+        123, true, "string"
+    ],
+    "array_2": [
+        123, true, "string"
+    ],
+    "object": {
+        "key": "this is a object"
+    },
+    "null": null,
+    "key": "this is a test"
+}
+#CE
+
+#HS pink|black
+当执行`var st_json = new STJson()`时，`st_json`为空元素，即`st_json.IsNullObject = true`。因为此时无法确定`st_json`是`对象`还是`数组`或者是`值`。
+在`STJson`中不存在类似于`JArray`或`JObject`对象，`STJson`既可以是`Array`也可以是`Object`。`STJson`拥有两个索引器`[int]``[string]`。
+#HE
+#CS cs
+var json_1 = new STJson();
+Console.WriteLine("[json_1] - " + json_1.IsNullObject + " - " + json_1.ValueType);
+
+var json_2 = new STJson();
+json_2.SetItem("key", "value");
+Console.WriteLine("[json_2] - " + json_2.IsNullObject + " - " + json_2.ValueType);
+
+var json_3 = new STJson();
+json_3.Append(1, 2, 3);
+Console.WriteLine("[json_3] - " + json_3.IsNullObject + " - " + json_3.ValueType);
+
+var json_4 = new STJson();
+json_4.SetValue(DateTime.Now);
+Console.WriteLine("[json_4] - " + json_4.IsNullObject + " - " + json_4.ValueType);
+
+var json_5 = STJson.CreateArray();          // made by static function
+Console.WriteLine("[json_5] - " + json_5.IsNullObject + " - " + json_5.ValueType);
+
+var json_6 = STJson.CreateObject();         // made by static function
+Console.WriteLine("[json_6] - " + json_6.IsNullObject + " - " + json_6.ValueType);
+
+var json_7 = STJson.FromObject(12);         // made by static function
+Console.WriteLine("[json_3] - " + json_7.IsNullObject + " - " + json_7.ValueType);
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[json_1] - True - None
+[json_2] - False - Object
+[json_3] - False - Array
+[json_4] - False - Datetime
+[json_5] - False - Array
+[json_6] - False - Object
+[json_7] - False - Long
+#CE
+
+#HS goldenrod|black
+当`ValuteType = Array`时,无法调用`SetItem(+n)`，当`ValueType = Object`时，无法调用`Append(+n)`。但是通过`SetValue(+n)`可强制改变`ValueType`。
+#HE
+
+正如上面提到的`STJson`有两个索引器，可以通过索引器访问他们，或者获取值。
+#CS cs
+var json_temp = STJson.CreateArray()
+    .SetItem("string", "this is string")
+    .SetItem("array", new Object[] { "1", "2", "3" });
+Console.WriteLine(json_temp["string"]);
+Console.WriteLine(json_temp["string"].GetValue());
+Console.WriteLine(json_temp["array"][1]);
+Console.WriteLine(json_temp["array"][1].GetValue<long>());
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+"this is string"
+this is string
+"2"
+2
+#CE
+
+#O object -> string
+通过上面的例子或许你已经知道怎么将一个对象转换为`string`，通过`STJson.FromObject(object).ToString(+n)`即可，但是有没有可能，其实不用这么麻烦的？比如：`STJson.Serialize(+n)`就可以了？？？
+事实上`STJson.Serialize(+n)`的效率会更好，因为它是直接将对象转换为字符串，而不是转换成`STJson`再转换成字符串。
+
+#CS cs
+Console.WriteLine(STJson.Serialize(new { key = "this is test" }));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{"key":"this is test"}
+#CE
+
+当然你可以有个更友好的输出格式：
+#CS cs
+Console.WriteLine(STJson.Serialize(new { key = "this is test" }, 4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "key": "this is test"
+}
+#CE
+事实上格式化输出是通过调用静态函数`STJson.Format(+n)`完成的。如果你觉得不喜欢作者内置的格式化风格，完全可以自己写一个格式化的函数。或者去修改源码文件`STJson.Statics.cs:Format(string,int)`。
+
+#O string -> object
+
+事实上代码并不会直接将`string`转换为`object`。因为在那之前必须先对字符串进行解析，确保它是一个正确格式的`Json`。但是做完这个过程的时候已经得到一个`STJson`对象了。最后将`STJson`再转换为`object`。
+所以你会在源代码`STLib.Json.Converter`中看到如下文件：
+`ObjectToSTJson.cs` `ObjectToString.cs` `STJsonToObject.cs` `StringToSTJson.cs`
+里面并没有`StringToObject.cs`文件，而`STJson.Deserialize(+n)`的源码如下：
+#CS cs
+public static T Deserialize<T>(string strJson, +n) {
+    var json = StringToSTJson.Get(strJson, +n);
+    return STJsonToObject.Get<T>(json, +n);
+}
+#CE
+
+#O STJson -> object
+
+如何将字符串转换为对象，相信作者不用说明读者也应该知道如何处理，但是这里值得说明的是，`STJson`可以附加到对象中，实现局部更新。
+#CS cs
+public class TestClass {
+    public int X;
+    public int Y;
+}
+
+TestClass tc = new TestClass() {
+    X = 10,
+    Y = 20
+};
+STJson json_test = new STJson().SetItem("Y", 100);
+STJson.Deserialize(json_test, tc);
+Console.WriteLine(STJson.Serialize(tc));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+ {"X":10,"Y":100}
+#CE
+
+#O STJsonConverter
+
+虽然在`STJson`中内置了很多数据类型的转换，即便没有的数据类型也会被当做`object`做递归处理。但是有时情况并不是很友好。比如：
+#CS cs
+Rectangle rect = new Rectangle(10, 10, 100, 100);
+Console.WriteLine(STJson.Serialize(rect, 4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "Location": {
+        "IsEmpty": false,
+        "X": 10,
+        "Y": 10
+    },
+    "Size": {
+        "IsEmpty": false,
+        "Width": 100,
+        "Height": 100
+    },
+    "X": 10,
+    "Y": 10,
+    "Width": 100,
+    "Height": 100,
+    "Left": 10,
+    "Top": 10,
+    "Right": 110,
+    "Bottom": 110,
+    "IsEmpty": false
+}
+#CE
+很显然，这个结果过于复杂，因为`Rectangle`的所有字段都被递归出来了。但是，如果这样呢？
+#CS cs
+public class RectangleConverter : STJsonConverter
+{
+    public override object JsonToObject(Type t, STJson json, ref bool bProcessed) {
+        return new Rectangle(
+            json["x"].GetValue<int>(),
+            json["y"].GetValue<int>(),
+            json["w"].GetValue<int>(),
+            json["h"].GetValue<int>());
+    }
+
+    public override STJson ObjectToJson(Type t, object obj, ref bool bProcessed) {
+        Rectangle rect = (Rectangle)obj;
+        return STJson.New()
+            .SetItem("x", rect.X)
+            .SetItem("y", rect.Y)
+            .SetItem("w", rect.Width)
+            .SetItem("h", rect.Height);
+    }
+
+    public override string ObjectToString(Type t, object obj, ref bool bProcessed) {
+        //return "{\"x\":" + ... + "}"
+        var json = this.ObjectToJson(t, obj, ref bProcessed);
+        if (bProcessed) {
+            return json.ToString();
+        }
+        return null;
+    }
+}
+
+Rectangle rect = new Rectangle(10, 10, 100, 100);
+STJson.AddCustomConverter(typeof(Rectangle), new RectangleConverter());
+string strResult = STJson.Serialize(rect);
+Console.WriteLine(strResult);
+rect = STJson.Deserialize<Rectangle>(strResult.Replace("100", "200"));
+Console.WriteLine(rect);
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{"x": 10,"y": 10,"w": 100,"h": 100}
+{X=10,Y=10,Width=200,Height=200}
+#CE
+#HS goldenrod|black
+其中`bProcessed`默认传入值为`true`，当上一层函数获取到`false`时则使用默认的处理方式。
+#HE
+
+`STJsonConverter`提供了`Attribute`类，也可用于标记对象属性。
+#CS cs
+public class Test{
+    [STJsonConverter(typeof(RectangleConverter))]
+    public Rectangle Rect{get; set;}
+}
+#CE
+
+#CS cs,STJsonConverter.cs
+public abstract class STJsonConverter
+{
+    public virtual STJson ObjectToJson(Type t, object obj, ref bool bProcessed) {
+        bProcessed = false;
+        return null;
+    }
+    public virtual string ObjectToString(Type t, object obj, ref bool bProcessed) {
+        bProcessed = false;
+        return null;
+    }
+    public virtual object JsonToObject(Type t, STJson json, ref bool bProcessed) {
+        bProcessed = false;
+        return null;
+    }
+}
+#CE
+
+#O STJsonAttribute
+
+或许在序列化的时候你并不想输出所有的属性，那么可以通过`STJsonAttribute`去控制。
+
+#CS cs
+[STJson(STJsonSerilizaMode.Include)]    // optional
+public class Student
+{
+    [STJsonProperty("test_name")]
+    public string Name;
+    public int Age;
+    public Gender Gender;
+    [STJsonProperty]                        // optional
+    public List<string> Hobby;
+}
+
+public enum Gender
+{
+    Male, Female
+}
+
+var stu = new Student() {
+    Name = "Tom",
+    Age = 100,
+    Gender = Gender.Male,
+    Hobby = new List<string>() { "Game", "Sing" }
+};
+
+str = STJson.Serialize(stu);
+Console.WriteLine(str);
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{"test_name":"Tom","Hobby":["Cooking","Sports"]}
+#CE
+
+#O STJsonSetting
+
+`STJsonSetting`用于在序列化或者反序列化中添加一些个性化设置。原本设置是全局的。但随着一些设置项的增多，作者认为全局设置粘性太高，所以独立出来`STJsonSetting`用于解耦。同时独立的设置类也可以方便后续版本的功能扩展，当然后续版本的概率不是很大。除非作者不想当咸鱼了。
+#CS cs
+var stu = new Student() {
+    Name = "Tom",
+    Age = 100,
+    Gender = Gender.Male,
+    Hobby = new List<string>() { "Game", "Sing" }
+};
+STJsonSetting setting = new STJsonSetting();
+setting.EnumUseNumber = true;
+setting.IgnoreAttribute = true;
+setting.Mode = STJsonSettingKeyMode.Exclude;
+setting.KeyList.Add("Age");
+str = STJson.Serialize(stu, setting);
+Console.WriteLine(STJson.Format(str));
+STJson.Deserialize<Student>(str);
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "test_name": "Tom",
+    "Gender": 0,
+    "Hobby": [
+        "Game", "Sing"
+    ]
+}
+#CE
+
+#HS pink|black
+`Attribute`的优先级大于`STJsonSetting`。
+#HE
+
+#O json_src
+
+在接下来的教程中我们会使用到一些测试数据，数据如下：
+
+#CS cs,test.json
+[{
+    "name": "Tom", "age": 16, "gender": 0,
+    "hobby": [
+        "cooking", "sing"
+    ]
+},{
+    "name": "Tony", "age": 16, "gender": 0,
+    "hobby": [
+        "game", "dance"
+    ]
+},{
+    "name": "Andy", "age": 20, "gender": 1,
+    "hobby": [
+        "draw", "sing"
+    ]
+},{
+    "name": "Kun", "age": 26, "gender": 1,
+    "hobby": [
+        "sing", "dance", "rap", "basketball"
+    ]
+}]
+#CE
+将其加载到程序中：
+#CS cs
+var json_src = STJson.Deserialize(System.IO.File.ReadAllText("./test.json"));
+#CE
+
+#HS pink|black
+之后的案例中出现`json_src`则为以上对象。
+#HE
+
+#T STJsonPath
+
+在源码`STJsonExtension.cs`中对`STJson`的功能进行了扩展，里面集成一些`STJsonPath`的功能。所以在`STJson`的原始代码中并没有对`STJsonPath`的依赖，`STJson`可独立使用。但`STJsonPath`作为`STJson`的辅助类，需依赖`STJson`。
+
+#O 选择器
+
+#TS token|note
+$|根节点选择器，可视作代表根节点对象。
+@|当前元素选择器，在遍历过程中指代当前被遍历的元素。
+*|通配符，表示可以代表任何一个节点。
+.<name>|子节点选择器，指定子节点的`key`。
+..|深度选择器，表示可以是任意路径。
+['<name>'(,'<name>')]|列表选择器，指定子节点的`key`集合。
+[<number>(,(number))]|列表选择器，指定子节点的`index`集合。
+[start:end:step]|切片选择器，用于指定索引区间。
+[(<expression>)]|表达式选择器，用于输入一个运算表达式，并将结果作为索引继续向下选择。
+[?(<expression>)]|表达式选择器，用于输入一个运算表达式，并将结果转换为布尔值，决定是否继续选择。
+#TE
+
+#O 使用方式
+
+通过以下方式可以构建一个`STJsonPath`：
+#CS cs
+// var jp = new STJsonPath("$[0]name");
+// var jp = new STJsonPath("$[0].name");
+var jp = new STJsonPath("[0]'name'"); // 以上方式均可以使用 $不是必须的
+Console.WriteLine(jp.Select(json_src));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+["Tom"]
+#CE
+当然在`STJson`中的扩展函数中已经集成`STJsonPath`，可以通过下面的方式直接使用：
+#CS cs
+// var jp = new STJsonPath("[0].name");
+// Console.WriteLine(json_src.Select(jp));
+Console.WriteLine(json_src.Select("[0].name")); // 内部动态构建 STJsonPath
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+["Tom"]
+#CE
+
+#HS goldenrod|black
+`STJsonPath`以数组的方式返回数据，其返回值是`STJson`而不是`List<STJson>`，`STJson`也可以是数组对象。
+`$`开头对于`STJsonPath`来说并不是必须的，且内部会移除掉开头的`$`或者`@`，`$``@`仅在表达式中作为对象的变量使用。
+#HE
+#HS pink|black
+在表达式中选择器的返回值仅返回选中的第一个结果。而不是数组列表，这点将在后面说明。
+#HE
+
+在`STJsonPath`中允许使用`'`或者`"`，比如：`'a.b'` `"a.b"` `STJsonPath`会将其视为一个独立的个体。而不是两个。列如有如下`Json`：
+#CS cs
+{
+    "a.b": "this is a test"
+}
+#CE
+很明显通过`Select("a.b")`是无法获取到数据的，需要通过`Select("'a.b'")`。
+#CS cs
+string strTemp = "{\"a.b\": \"this is a test\"}";
+var json_temp = STJson.Deserialize(strTemp);
+Console.WriteLine(json_temp.Select("a.b"));
+Console.WriteLine(json_temp.Select("'a.b'"));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[]
+["this is a test"]
+#CE
+在字符串中支持`\\`进行转义：`\\r``\\n``\\t``\\f``\\b``\\a``\\v``\\0``\\x..``\\u...``\\.`
+
+#O 通配符
+
+通配符可表示当前层级中的任何一个节点。获取所有人员姓名。
+
+#CS cs
+Console.WriteLine(json_src.Select("*.name").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom", "Tony", "Andy", "Kun"
+]
+#CE
+
+#O 深度选择器
+
+深度选择器与通配符类似，但深度选择器可以是任意层级。
+
+#CS cs
+Console.WriteLine(json_src.Select("..name").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom", "Tony", "Andy", "Kun"
+]
+#CE
+
+#O 列表选择器
+
+列表选择器支持`int`和`string`两种方式，虽然在上面`选择器`的表格中列举了两个列表选择器，但是在`STJsonPath`中只有一个列表选择器，它们可以混合使用，比如下面的使用方式都是合法的：
+#US
+`[0, 1, 2, 3]`
+`['key_1', 'key_2', key_3]`
+`[0, 'key_1', 1, 'key_2', 2, key_3]`
+#UE
+`STJsonPath`在内部会自动拆分为两个列表选择器，并判断`STJsonValueType`决定使用哪个列表选择器。内部实现代码如下：
+#CS cs
+case STJsonPathItem.ItemType.List:
+    if (jsonCurrent.ValueType == STJsonValueType.Object) {
+        foreach (var v in item.Keys) {
+            if (jsonCurrent[v] == null) {
+                continue;
+            }
+            // ...
+        }
+    }
+    if (jsonCurrent.ValueType == STJsonValueType.Array) {
+        foreach (var v in item.Indices) {
+            nIndexSliceL = v;
+            if (nIndexSliceL < 0) nIndexSliceL = jsonCurrent.Count + nIndexSliceL;
+            if (nIndexSliceL < 0) continue;
+            if (nIndexSliceL >= jsonCurrent.Count) continue;
+            // ...
+        }
+    }
+    break;
+#CE
+选择索引为`0`和`2`的元素。
+#CS cs
+Console.WriteLine(json_src.Select("[0,2]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tom",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "cooking", "sing"
+        ]
+    }, {
+        "name": "Andy",
+        "age": 20,
+        "gender": 1,
+        "hobby": [
+            "draw", "sing"
+        ]
+    }
+]
+#CE
+
+对于`int`索引可以使用负数，比如`-1`则表示获取最后一个元素。当`STJsonPath`检测到负数时候会执行`STJson.Count - n`将结果作为索引。
+
+#CS cs
+//Console.WriteLine(json_src.Select("-1").ToString(4));
+Console.WriteLine(json_src.Select("[-1]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }
+]
+
+#CE
+
+#O 切片选择器
+
+切片选择器用于在数组中选择一个片段，切片选择器默认值`[0:-1:1]`，在切片选择器内部如下实现：
+#CS cs
+case STJsonPathItem.ItemType.Slice:
+    if (jsonCurrent.ValueType != STJsonValueType.Array) {
+        return;
+    }
+    if (nIndexSliceL < 0) nIndexSliceL = jsonCurrent.Count + nIndexSliceL;
+    if (nIndexSliceR < 0) nIndexSliceR = jsonCurrent.Count + nIndexSliceR;
+    if (nIndexSliceL < 0) nIndexSliceL = 0;
+    else if (nIndexSliceL >= jsonCurrent.Count) nIndexSliceL = jsonCurrent.Count - 1;
+    if (nIndexSliceR < 0) nIndexSliceR = 0;
+    else if (nIndexSliceR >= jsonCurrent.Count) nIndexSliceR = jsonCurrent.Count - 1;
+    if (nIndexSliceL > nIndexSliceR) {
+        for (int i = nIndexSliceL; i >= nIndexSliceR; i -= item.Step) {
+            // ...
+        }
+    } else {
+        for (int i = nIndexSliceL; i <= nIndexSliceR; i += item.Step) {
+            // ...
+        }
+    }
+    break;
+#CE
+所以切片中的三个值等同于`for`循环中的三个条件，所以原理与效果就不再说明。
+
+#TS expression|range|note
+[::]|0 <= R <= (OBJ).length - 1|等同于`*`
+[5:]|5 <= R <= {OBJ}.length - 1|从第`6`个元素开始，获取所有元素
+[-1:0]|{OBJ}.length - 1 >= R >= 0|倒序获取数据
+[0::2]|0 <= R <= {OBJ}.length - 1|顺序获取数据，且间隔一个数据
+#TE
+
+#HS goldenrod|black
+切片选择器中至少出现一个`:`且`step`大于0，否则将获得异常。
+#HE
+
+#CS cs
+Console.WriteLine(json_src.Select("[-1:]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }
+]
+#CE
+
+#O 表达式
+
+在`[?()]`中可支持下列运算符，优先级从上至下依次升高
+#-
+#US
+`&&` `||`
+`<` `<=` `>` `>=` `==` `!=` `re`
+`&` `|` `<<` `>>` `^` `~`
+`+` `-`
+`*` `/` `%`
+`in` `nin` `anyof`
+`!`
+#UE
+#TS operator|note|e.g
+re|正则表达式|[?(@.name re 'un')]
+in|左边的值或数组包含在右边的数组中|[?(@.age in [16,20])]
+nin|左边的值或数组不包含在右边的数组中|[?(@.hobby nin ['sing','draw'])]
+anyof|左边的值或数组和右边的数组存在交集|[?(@.hobby anyof ['sing','draw'])]
+#TE
+
+表达式有两种模式：
+#US
+    `[?(<expression>)]` - 过滤表达式，用于计算出一个布尔值，确定是否继续匹配。
+    `[(<expression>)]` - 普通表达式，用于计算出一个值，并将值作为索引继续匹配。
+#UE
+
+#O 过滤表达式
+
+选中`name`中包含字母`ku`的元素：
+#CS cs
+//Console.WriteLine(json_src.Select("*.[?(@.name == 'kun')]").ToString(4));
+Console.WriteLine(json_src.Select("*.[?(@.name re '(?i)ku')]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }
+]
+#CE
+`(?i)`中的`i`表示忽略大小写，其正则表达式以`.Net`中`Regex`为标准。`(?...)`开头则表示设置匹配模式。至于匹配模式自行查阅相关资料。
+
+选中`hobby`不包含`sing`和`swing`的元素：
+#CS cs
+Console.WriteLine(json_src.Select("*.[?(@.hobby nin ['sing','draw'])]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tony",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "game", "dance"
+        ]
+    }
+]
+#CE
+
+#O 普通表达式
+
+普通表达式会将结果作为`STJsonPath`的部分继续匹配。
+
+#CS cs
+Console.WriteLine(json_src.Select("*.[('na' + 'me')]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom", "Tony", "Andy", "Kun"
+]
+#CE
+
+在`[('na' + 'me')]`中`'na' + 'me'`的结果为`'name'`，并且会将这个值作为索引，所以上述效果等同于`*.name`，当然返回值也可以是一个集合。
+
+#CS cs
+Console.WriteLine(json_src.Select("*.[(['na' + 'me', 'age', 0, 1 + 1])]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom", 16, "Tony", 16, "Andy", 20, "Kun", 26
+]
+#CE
+上面表达式的结算结果值为`['name', 'age', 0, 2]`。但是很显然`0`和`2`将不会起到任何作用，因为第二层的数据对象并不是一个数组。
+上面的表达式等同于`*.['name', 'age', 0, 2]`。如果将上面的换成第三层会得到下面的结果。
+#CS cs
+Console.WriteLine(json_src.Select("*.*.[(['na' + 'me', 'age', 0, 1 + 1])]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "cooking", "game", "draw", "sing", "rap"
+]
+#CE
+可以看到`'name'`和`'age'`对于`hobby`来说是无效的，因为`hobby`是一个数组。
+
+#O 测试表达式
+
+可能读者并不了解表达式在内部是如何被执行了并且会输出什么样的结果，作者提供了一个静态测试函数`TestExpression()`可用于调试表达式。若有什么不明白的地方测试一下就会看到过程及结果。
+
+#CS cs
+Console.WriteLine(STJsonPath.TestExpression(
+    null,           // [STJson] 用于替代表达式中出现的 $
+    null,           // [STJson] 用于替代表达式中出现的 @
+    "1+2+3"         // 表达式文本
+    ).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "type": "expression",
+    "parsed": "{1 + 2 + 3}",        // 格式化后的文本 {}表示此部分需要单独执行 如: [1, {1+1}, 3]
+    "polish": [
+        "1", "2", " + ", "3", " + " // 逆波兰方式排列
+    ],
+    "steps": [                      // 执行步骤
+        {
+            "type": "excute",
+            "operator": "+",
+            "get_left_token": {     // 计算操作符左边元素的值，表达式左边也可能是一个表达式
+                "parsed": "1",
+                "type": "value",
+                "result": {
+                    "value_type": "Long",
+                    "text": "1"
+                }
+            },
+            "get_right_token": {
+                "parsed": "2",
+                "type": "value",
+                "result": {
+                    "value_type": "Long",
+                    "text": "2"
+                }
+            },
+            "result": {             // 该步骤执行结果
+                "value_type": "Long",
+                "text": "3"
+            }
+        }, {
+            "type": "excute",
+            "operator": "+",
+            "get_left_token": {     // 此时操作符左边的元素为上一步的计算结果
+                "parsed": "3",
+                "type": "value",
+                "result": {
+                    "value_type": "Long",
+                    "text": "3"
+                }
+            },
+            "get_right_token": {
+                "parsed": "3",
+                "type": "value",
+                "result": {
+                    "value_type": "Long",
+                    "text": "3"
+                }
+            },
+            "result": {
+                "value_type": "Long",
+                "text": "6"
+            }
+        }
+    ],
+    "check_result": {               // 清空波兰表达式数据栈，确定最终输出结果。
+        "parsed": "6",
+        "type": "value",
+        "result": {
+            "value_type": "Long",
+            "text": "6"
+        }
+    },
+    "return": {                     // 最终返回值
+        "value_type": "Long",
+        "text": "6",
+        "bool": true                // 如果用作布尔表达式则转换为 true
+    }
+}
+#CE
+
+如果过程不重要，仅仅是想看执行结果。
+#CS cs
+Console.WriteLine(STJsonPath.TestExpression(
+    null,           // [STJson] 用于替代表达式中出现的 $
+    null,           // [STJson] 用于替代表达式中出现的 @
+    "1+2+3"         // 表达式文本
+    ).SelectFirst("return").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "return": {                     // 最终返回值
+        "value_type": "Long",
+        "text": "6",
+        "bool": true                // 如果用作布尔表达式则转换为 true
+    }
+}
+#CE
+
+#O 内置函数
+
+#TS return|signature|note
+string|typeof(+n)|获取数据类型。
+string|str(+n)|转换为字符串。
+string|upper(+n)|转换为大写。
+string|lower(+n)|转换为小写。
+
+long|len(+n)|获取字符串或者数组长度。
+long|long(+n)|转换为整数。
+double|double(+n)|转换为浮点数。
+long or double|abs(+n)|获取绝对值。
+long|round(+n)|四舍五入。
+long|ceil(+n)|向上取整。
+#TE
+
+`typeof`具有下列返回值：
+`string` `long` `double` `boolean` `array` `object` `undefined`
+
+以上函数可使用如下签名
+#US
+fn(object)
+fn(object[])
+fn(object,bool)
+fn(object[],bool)
+#UE
+其中`bool`表示是否期望以数组方式获得结果，如果为`true`则以数组方式输出结果，并且当`object`为数组是，递归其中的数据。
+#CS cs
+Console.WriteLine(STJsonPath.TestExpression(
+    null,
+    null,
+    "typeof([1+2+3,'abc'], false)"
+    ).SelectFirst("return").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "bool": true,
+    "value_type": "String",
+    "value": "array"
+}
+// =============================================================================
+Console.WriteLine(STJsonPath.TestExpression(
+    null,
+    null,
+    "typeof([1+2+3,'abc'], true)"
+    ).SelectFirst("return").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "bool": true,
+    "value_type": "Array",
+    "items": [
+        "long", "string"
+    ]
+}
+#CE
+不同的函数第二个参数采用不同的默认值。一下是一些其他函数，读者可以自己通过`TestExpression()`进行效果测试。
+
+#TS return|signature|note
+long or double|max(+1)|求最大值。
+long or double|min(+1)|求最小值。
+long or double|avg(+1)|求平均值。
+long or double|sum(+1)|求总和。
+
+string|trim(+n)|裁切字符串两端的指定字符。
+string|trims(+n)|裁切字符串开始的指定字符。
+string|trime(+n)|裁切字符串末尾的指定字符。
+string_array|split(+1)|拆分字符串。
+long or string|time(+n)|获取或格式化时间戳。
+#TE
+
+#O 内置函数列表
+
+随着版本的迭代更新(如果可能的话)，内置函数可能随时发生变化，通过`GetBuildInFunctionList()`可以查看当前版本支持的内置函数信息。
+#CS cs
+Console.WriteLine(STJsonPath.GetBuildInFunctionList().ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "typeof",
+        "demos": [
+            "(object) -> typeof('abc')", "(array,bool) -> typeof(['abc',123],true)"
+        ]
+    },
+    ...
+]
+#CE
+读者可以通过`TestExpression()`按照`demos`对函数进行测试。
+
+选中`hobby`长度大于`2`的元素：
+#CS cs
+Console.WriteLine(json_src.Select("..[?(len(@.hobby) > 1 + 1)]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }
+]
+#CE
+
+#O 自定义函数
+
+在为表达式提供内置函数的时候作者也不知道开发者期望内置什么样的函数，随便内置了几个之后干脆不想了。没有什么问题是写代码解决不了的，没错。。。让开发者自己去写。但是开发者要怎么样为`STJsonPath`提供函数呢？
+`STJsonPath.CustomFunctions`是一个静态字典。用于保存开发者自定义的函数。其函数签名如下：
+#CS cs
+public delegate STJson STJsonPathCustomFuncHander(STJsonPathExpFuncArg[] args);
+
+public struct STJsonPathExpFuncArg
+{
+    public STJsonPathExpFuncArgType Type;
+    public object Value;
+}
+
+public enum STJsonPathExpFuncArgType
+{
+    Undefined, Number, String, Boolean, Array, Object,
+}
+#CE
+自定义函数返回值统一`STJson`，因为`STJson`可与`STJsonPath`完美衔接，在`STJsonPath`可直接使用`选择器`对自定义函数返回值进行操作。比如下面的案例为`STJsonPath`添加一个`matches`函数用于正则表达式操作。
+#CS cs
+STJsonPath.CustomFunctions.Add("matches", (objs) => {
+    var json_ret = new STJson();
+    json_ret.SetItem("count", 0);
+    json_ret.SetItem("values", STJson.CreateArray());
+    if (objs.Length != 2) {
+        return json_ret;
+    }
+    var ms = Regex.Matches(objs[0].Value.ToString(), objs[1].Value.ToString());
+    json_ret["count"].SetValue(ms.Count);
+    foreach (Match v in ms) {
+        json_ret["values"].Append(STJson.FromObject(new {
+            success = v.Success,
+            index = v.Index,
+            length = v.Length,
+            value = v.Value
+        }));
+    }
+    return json_ret;
+});
+#CE
+然后我们需要筛选出`hobby`中包含两个`a`或`o`的元素：
+#CS cs
+Console.WriteLine(json_src.Select("*.hobby.*[?(matches(@,'a|o').count == 2)]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "cooking", "basketball"
+]
+#CE
+
+#HS pink|black
+`自定义函数`优先级高于`内置函数`，也就是说如果在`自定义函数`中和`内置函数`中出现了同名函数，则优先调用`自定义函数`。
+#HE
+
+#O 表达式中的选择器
+
+在表达式中的选择器仅返回选中的第一个结果，而不是数组列表。
+#CS cs
+Console.WriteLine(json_src[0].Select("name").ToString(4));
+Console.WriteLine(STJsonPath.TestExpression(json_src[0], json_src[0], "@.name").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom"
+]
+{
+    "type": "expression",
+    "parsed": "{[@]['name']}",
+    "polish": [
+        "[@]['name']"
+    ],
+    "steps": [
+        
+    ],
+    "check_result": {
+        "parsed": "[@]['name']",
+        "type": "selector",
+        "root_json": "{\"name\":\"Tom\",\"age\":16,\"gender\":0,\"hobby\":[\"cooking\",\"sing\"]}",
+        "current_json": "{\"name\":\"Tom\",\"age\":16,\"gender\":0,\"hobby\":[\"cooking\",\"sing\"]}",
+        "selected_json": "[\"Tom\"]",
+        "result": {                     // 返回值将只获取第一个结果
+            "value_type": "String",
+            "text": "Tom"
+        }
+    },
+    "return": {
+        "bool": true,
+        "value_type": "String",
+        "text": "Tom"
+    }
+}
+#CE
+
+#O 选择方式
+
+普通模式(默认方式)：
+#CS cs
+Console.WriteLine(json_src.Select("..name", STJsonPathSelectMode.ItemOnly).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "Tom", "Tony", "Andy", "Kun"
+]
+#CE
+
+路径模式：
+#CS cs
+Console.WriteLine(json_src.Select("..name", STJsonPathSelectMode.ItemWithPath).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "path": [
+            0, "name"
+        ],
+        "item": "Tom"
+    }, {
+        "path": [
+            1, "name"
+        ],
+        "item": "Tony"
+    }, {
+        "path": [
+            2, "name"
+        ],
+        "item": "Andy"
+    }, {
+        "path": [
+            3, "name"
+        ],
+        "item": "Kun"
+    }
+]
+#CE
+
+保持结构：
+#CS cs
+Console.WriteLine(json_src.Select("..name", STJsonPathSelectMode.KeepStructure).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tom"
+    }, {
+        "name": "Tony"
+    }, {
+        "name": "Andy"
+    }, {
+        "name": "Kun"
+    }
+]
+#CE
+
+#O ParsedTokens
+
+`GetParsedTokens()`用于获取当前`STJsonPath`得字符串在内部是如何被解析，且以`STJson`方式输出。如果你也想编写一个解析器，说不定可以给你提供一些思路。
+
+#CS cs
+Console.WriteLine(
+    new STJsonPath("$..[?(matches(@.name,'u').count == 1)]").GetParsedTokens().ToString(2)
+    );
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+  "type": "entry",
+  "parsed": "[..]{matches({[@]['name']}, {'u'}) == 1}",
+  "items": [
+    {
+      "type": "selector_item",
+      "item_type": "Depth",
+      "value": ".."
+    }, {
+      "type": "expression",
+      "parsed": "{matches({[@]['name']}, {'u'}) == 1}",
+      "items": [
+        {
+          "type": "function",
+          "parsed": "matches({[@]['name']}, {'u'})",
+          "name": "matches",
+          "args": {
+            "parsed": "({[@]['name']}, {'u'})",
+            "items": [
+              {
+                "type": "expression",
+                "parsed": "{[@]['name']}",
+                "items": [
+                  {
+                    "type": "expression_item",
+                    "item_type": "selector",
+                    "items": [
+                      {
+                        "type": "selector_item",
+                        "item_type": "Current",
+                        "value": "@"
+                      }, {
+                        "type": "selector_item",
+                        "item_type": "List",
+                        "value": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                "type": "expression",
+                "parsed": "{'u'}",
+                "items": [
+                  {
+                    "type": "expression_item",
+                    "item_type": "string",
+                    "value": "u"
+                  }
+                ]
+              }
+            ]
+          },
+          "selector": {
+            "parsed": "['count']",
+            "items": [
+              {
+                "type": "selector_item",
+                "item_type": "List",
+                "value": [
+                  "count"
+                ]
+              }
+            ]
+          }
+        }, {
+          "type": "expression_item",
+          "item_type": "long",
+          "value": 1
+        }, {
+          "type": "expression_item",
+          "item_type": "operator",
+          "value": "=="
+        }
+      ]
+    }
+  ]
+}
+#CE
+
+#T STJson [高级应用]
+
+#O 获取值
+
+试想一个场景，作为一个`WEB`后端服务，需要处理前端提交过来的`Json`数据，假定我们期望得到以下`Json`数据：
+#CS cs
+{
+    "type": "get_list",
+    "page": {
+        "from": 100,
+        "size": 10
+    },
+    "other": {}
+}
+#CE
+并且我们已经将上面的数据转化为`STJson`且命名为`json_post`。其中`from`和`size`用于翻页功能。那么后台可能会做如下判断：
+#CS cs
+if(json_post["page"] == null) { /* do something */ }
+if(json_post["page"]["from"] == null) { /* do something */ }
+if(json_post["page"]["from"].ValueType != STJsonValueType.Long) {
+    /* do something */
+}
+int nFrom = json_post["page"]["from"].GetValue<int>();
+// 或者 直接暴力一点
+int nFrom = 0;
+try{
+    nFrom = json_post["page"]["from"].GetValue<int>();
+}catch{
+    /* do something */ 
+}
+#CE
+很显然上面的代码让你抓狂。。。当然为了减少麻烦可以在后端代码中为其创建一个实体对象，然后将`Json`绑定到实体对象中。。。但是为每个`Post`过来的数据类型创建一个实体对象是不是也挺麻烦的。但是如果使用下面的代码。
+#CS cs
+int nFrom = json_post.GetValue<int>("page.from"); 
+#CE
+或许你会疑惑，，如果路径不存在或者`from`根本不是数字怎么办？emm....上面的代码依然会报错,因为上面的代码内部调用是：
+#CS cs
+public static T GetValue<T>(this STJson json, string strJsonPath) {
+    return json.GetValue<T>(new STJsonPath(strJsonPath));
+}
+
+public static T GetValue<T>(this STJson json, STJsonPath jsonPath) {
+    var j = jsonPath.SelectFirst(json);
+    if (j == null) {
+        throw new STJsonPathException("Can not selected a object with path {" + jsonPath.SourceText + "}");
+    }
+    var t = typeof(T);
+    bool bProcessed = true;
+    var convert = STJsonBuildInConverter.Get(t);
+    if (convert != null) {
+        var value = convert.JsonToObject(t, json, ref bProcessed);
+        if (bProcessed) {
+            return (T)value;
+        }
+    }
+    return (T)j.Value;
+}
+#CE
+因为当不存在元素时候，不知道需要返回什么值，可能读者认为无法获取值，返回一个默认值就好了，的确可以这么设计，可是调用者如何确定返回的值是真实的值还是默认值。无法确定是否异常了。除非强制指定一个默认值。
+#CS cs
+int nFrom = json_post.GetValue<int>("page.from", 0); 
+#CE
+如果存在元素且能正常转换则返回元素值，否则返回`0`。
+或者想知道是否返回的是真实值：
+#CS cs
+int nFrom = 0;
+var bFlag = json_src.GetValue<int>("page.from", out nFrom);
+#CE
+#HS goldenrod|black
+若填写的`strJsonPath`会获取到多个值，则取第一个值。
+#HE
+
+#O 设置值
+
+如果我们需要手动构造一个`Json`可以通过`STJson.SetItem()`来添加元素。可是有些场景这样使用似乎有点麻烦，比如以`ElasticSearch`数据库的`query`语法为例。我们需要构造一个下面的数据：
+#CS cs
+{
+    "query":{
+        "term":{
+            "field_name": "field_value"
+        }
+    }
+}
+#CE
+那么按照之前的写法我们需要这样去构造一个`STJson`对象：
+#CS cs
+var json = new STJson()
+    .SetItem("query", new STJson()
+        .SetItem("term", new STJson()
+            .SetItem("field_name", "field_value"))
+        );
+// or
+var json = STJson.FromObject(new {
+    query = new {
+        term = new {
+            field_name = "field_value"
+        }
+    }
+});
+#CE
+但是还可以这样写代码：
+#CS cs
+var json = new STJson().Set("query.term.field_name", "field_value");
+Console.WriteLine(json.ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "query":{
+        "term":{
+            "field_name": "field_value"
+        }
+    }
+}
+#CE
+甚至是这样：
+#CS cs
+var json = new STJson().Set("array[0:4].[key_1,key_2]", "value");
+Console.WriteLine(json.ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "array": [
+        {
+            "key_1": "value",
+            "key_2": "value"
+        }, {
+            "key_1": "value",
+            "key_2": "value"
+        }, {
+            "key_1": "value",
+            "key_2": "value"
+        }, {
+            "key_1": "value",
+            "key_2": "value"
+        }, {
+            "key_1": "value",
+            "key_2": "value"
+        }
+    ]
+}
+#CE
+#HS pink|black
+在`Set`中仅仅支持`列表选择器`和`切片选择器`。不支持其他选择器。
+#HE
+
+#O 回调函数
+
+通过上面的`Set`我们是否能够将`json_src`中每个人的喜好都添加一个`coding`？。。似乎不太可以。毕竟向`hobby`中添加数据需要`append`而不是`set`。
+当然也并不是没有办法。
+#CS cs
+json_src.Select("*.hobby", (p, j) => {
+    j.Append("coding");
+});
+Console.WriteLine(json_src.ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tom",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "cooking", "sing", "coding"
+        ]
+    }, 
+    ...
+]
+#CE
+在`Select`中支持两种回调函数，一个需要返回值，另一个不需要返回值，如同上面的。而下面的带返回值。
+#CS cs
+var json = json_src.Select("*.hobby.*", (p, j) => {
+    return new STJsonPathCallBackResult() {
+        Selected = true,            // 是否将此条 json 添加到结果中
+        Json = new STJson()         // 需要被添加到结果的 json
+            .SetItem("path", p)
+            .SetItem("item", j.Value.ToString().ToUpper())
+    };
+});
+Console.WriteLine(json.ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "path": [
+            0, "hobby", 0
+        ],
+        "item": "COOKING"
+    },
+    ...
+]
+#CE
+
+#O PathItem
+
+在`STJsonPath`中有一个比较特殊的数据结构。
+#CS cs
+[
+    {
+        "path": [
+            ...
+        ],
+        "item": ...
+    },
+    ...
+]
+#CE
+可以通过`RestorePathJson()`还原其结构。
+#CS cs
+var json = json_src.Select("*.hobby.*", (p, j) => {
+    return new STJsonPathCallBackResult() {
+        Selected = true,
+        Json = new STJson()
+            .SetItem("path", p)
+            .SetItem("item", j.Value.ToString().ToUpper())
+    };
+});
+Console.WriteLine(STJsonPath.RestorePathJson(json).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "hobby": [
+            "COOKING", "SING"
+        ]
+    }, {
+        "hobby": [
+            "GAME", "DANCE"
+        ]
+    }, {
+        "hobby": [
+            "DRAW", "SING"
+        ]
+    }, {
+        "hobby": [
+            "SING", "DANCE", "RAP", "BASKETBALL"
+        ]
+    }
+]
+#CE
+
+#O Clone
+
+如果想向所有的用户喜好中添加`coding`。但是又不想影响源数据，那么可以克隆一份数据进行操作。
+
+#CS cs
+json_src.Clone().Select("*.hobby", (p, j) => {
+    j.Append("coding");
+});
+Console.WriteLine(json_src.ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tom",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "cooking", "sing"
+        ]
+    }, 
+    ...
+]
+#CE
+
+#T 数据聚合
+
+在`STJson`中内置了部分扩展函数用于聚合操作，进行一些简单的数据处理。结合`STJsonPath`可以快速且简单的完成一些数据操作。
+
+#O sort
+`Sort()`用于对数据进行排序，内部采用`归并排序`方式。此函数有如下形式签名：
+#TS return|signature|note
+STJson|Sort()|不指定`path`进行排序。默认升序。
+STJson|Sort(bool)|不指定`path`进行排序，指定是否为降序。
+STJson|Sort(params object[])|用于指定`path`或是否降序。
+#TE
+
+不指定`path`进行排序：
+#CS cs
+var arr_obj = new object[] { 4, 2, 5, 6, 1, true, null, new { aa = "aa" } };
+var json_objs = STJson.FromObject(arr_obj);
+Console.WriteLine(json_objs.Sort());
+Console.WriteLine(json_objs.Sort(true));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[true,1,2,4,5,6,{"aa":"aa"},null]
+[6,5,4,2,true,1,{"aa":"aa"},null]
+#CE
+你是否会感到疑惑为什么会是这样的结果？。。。但是在那之前为什么你不先疑惑一下为什么要用这样的数组去排序呢？
+在`Sort`的内部会对每个元素获取出一个数字并记录元素索引，然后对这个数字进行排序，最后根据索引位置重新组合一个数组达到排序目的。对于如何获取元素的数字规则如下：
+#CS cs
+switch (item.ValueType) {
+    case STJsonValueType.Long:
+    case STJsonValueType.Double:
+        d_temp = item.GetValue<double>();
+        break;
+    case STJsonValueType.Boolean: // true 被计算成 1
+        d_temp = item.GetValue<bool>() ? 1 : 0;
+        break;
+    case STJsonValueType.Datetime:
+        d_temp = Convert.ToDouble(item.GetValue<DateTime>());
+        break;
+    case STJsonValueType.String:
+        d_temp = item.Value == null ? 0 : item.Value.ToString().Length;
+        break;
+    default:    // 对于其他类型让其始终排在最后面即可
+        d_temp = arr_b_desc[j] ? double.MinValue : double.MaxValue;
+        break;
+}
+#CE
+所以如果你没有那么奇怪的数组的话，那么一切都会正常起来。如果实在是想只对里面的数字排序怎么办？
+#CS cs
+var arr_obj = new object[] { 4, 2, 5, 6, 1, true, null, new { aa = "aa" } };
+var json_objs = STJson.FromObject(arr_obj)
+    .Select("..[?(typeof(@) in ['long', 'double'])]");
+Console.WriteLine(json_objs.Sort());
+Console.WriteLine(json_objs.Sort(true));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[1,2,4,5,6]
+[6,5,4,2,1]
+
+#CE
+
+指定`path`进行排序：
+#CS cs
+Console.WriteLine(json_src.Sort("age").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tony",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "game", "dance"
+        ]
+    }, {
+        "name": "Tom",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "cooking", "sing"
+        ]
+    }, {
+        "name": "Andy",
+        "age": 20,
+        "gender": 1,
+        "hobby": [
+            "draw", "sing"
+        ]
+    }, {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }
+]
+#CE
+当然你也可以指定降序排列：
+#CS cs
+Console.WriteLine(json_src.Sort("age", true).ToString(4));
+#CE
+还可以同时指定多个字段进行排序：
+#CS cs
+Console.WriteLine(json_src.Sort("gender", false, "age", true).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    {
+        "name": "Tony",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "game", "dance"
+        ]
+    }, {
+        "name": "Tom",
+        "age": 16,
+        "gender": 0,
+        "hobby": [
+            "cooking", "sing"
+        ]
+    }, {
+        "name": "Kun",
+        "age": 26,
+        "gender": 1,
+        "hobby": [
+            "sing", "dance", "rap", "basketball"
+        ]
+    }, {
+        "name": "Andy",
+        "age": 20,
+        "gender": 1,
+        "hobby": [
+            "draw", "sing"
+        ]
+    }
+]
+#CE
+以上为使用`gender`进行升序，然后对于相同值再对`age`进行降序排列。`Sort`函数参数规则如下：
+#CS cs
+Sort(string strJsonPath, bool isDesc[, string strJsonPath, bool isDesc]*);
+// STLib.Json.STJsonExtension.cs:Sort()
+public static STJson Sort(this STJson json, params object[] fields) {
+    var jsonSort = STJson.CreateArray();
+    for (int i = 0; i < fields.Length; i += 2) {
+        var j = new STJson()
+            .SetItem("path", fields[i] == null ? null : fields[i].ToString())
+            .SetItem("desc", i + 1 < fields.Length ? Convert.ToBoolean(fields[i + 1]) : false);
+        jsonSort.Append(j);
+    }
+    return json.Sort(jsonSort);
+}
+#CE
+
+#O group
+
+`Group()`用于对数据指定`path`进行分组。使用方式如下：
+#CS cs
+Console.WriteLine(json_src.Group("gender").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "gender": [
+        {
+            "value": 0,
+            "items": [
+                {
+                    "name": "Tom",
+                    "age": 16,
+                    "gender": 0,
+                    "hobby": [
+                        "cooking", "sing"
+                    ]
+                }, {
+                    "name": "Tony",
+                    "age": 16,
+                    "gender": 0,
+                    "hobby": [
+                        "game", "dance"
+                    ]
+                }
+            ]
+        }, {
+            "value": 1,
+            "items": [
+                {
+                    "name": "Andy",
+                    "age": 20,
+                    "gender": 1,
+                    "hobby": [
+                        "draw", "sing"
+                    ]
+                }, {
+                    "name": "Kun",
+                    "age": 26,
+                    "gender": 1,
+                    "hobby": [
+                        "sing", "dance", "rap", "basketball"
+                    ]
+                }
+            ]
+        }
+    ]
+#CE
+同样的你也可以使用多个`path`进行分组，但是和`Sort`不同的是这些`path`不是对第一个`path`的结果再进行分组。是并列的，而非嵌套的。
+#CS cs
+Console.WriteLine(json_src.Group("gender", "age").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "gender": [...],
+    "age": [...]
+}
+#CE
+如果想进行嵌套`Group()`应该怎么办？作者并不打算在`Group()`中实现，因为`STJsonPath`可以完成这个工作。
+
+#O terms
+
+`Terms()`与`ElasticSearch`数据库中的聚合类似，统计某个字段的出现次数，与`Sort()`一样，它可以选择是否指定`path`或者多个`path`。
+#CS cs
+Console.WriteLine(json_src.Terms("hobby", "gender").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "hobby": [
+        {
+            "value": "cooking",
+            "count": 1
+        }, {
+            "value": "sing",
+            "count": 3
+        }, {
+            "value": "game",
+            "count": 1
+        }, {
+            "value": "dance",
+            "count": 2
+        }, {
+            "value": "draw",
+            "count": 1
+        }, {
+            "value": "rap",
+            "count": 1
+        }, {
+            "value": "basketball",
+            "count": 1
+        }
+    ],
+    "gender": [
+        {
+            "value": 0,
+            "count": 2
+        }, {
+            "value": 1,
+            "count": 2
+        }
+    ]
+}
+#CE
+如你所见，似乎`hobby`并没有对`count`进行排序啊？是的。。。这是作者故意的。。。咋地？不服？。。。有没有可能其实`Terms()`还有一个作用？在`ES`数据库中有个`cardinality`。用作统计某字段去重后的数据个数。
+有没有可能其实作者也想实现一个这样的函数？。。但是这个函数写到一半的时候，作者当场Delete。。。没必要啊。。上面的`Terms()`不就已经完成了这个工作了吗？比如：
+#CS cs
+json_src.Terms("hobby")["hobby"].Count;
+#CE
+而且有没有一种可能`cardinality`只统计个数。。。但是。。如果想要获取到去重后的字段值都有哪些要怎么办？。。。而刚才说的这些情况`Terms()`似乎都已经完成了。。仅仅是没有做排序。都已经有`Sort()`函数了，再单独排个序怎么了？
+#CS cs
+json_src.Terms("hobby")["hobby"].Sort("count", true);
+#CE
+如果想获得人员最受欢迎的前三个喜好要怎么做？
+#CS cs
+Console.WriteLine(
+    json_src.Terms("hobby")["hobby"]
+    .Sort("count", true)
+    .Select("[0:3]")
+    .Select("*.value")
+    .ToString(4)
+    );
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+[
+    "sing", "dance", "basketball"
+]
+#CE
+
+#O min, max
+
+`Min()` `Max()`分别为寻找最小值和最大值元素，可以不指定或者指定多个`path`。
+#CS cs
+Console.WriteLine(json_src.Min("age").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "age": {
+        "count": 4,                 // 其中 4 个元素参与了计算
+        "value": 16,                // 最小的 age 值为 16
+        "items": [                  // 满足最小值的元素
+            {
+                "name": "Tom",
+                "age": 16,
+                "gender": 0,
+                "hobby": [
+                    "cooking", "sing"
+                ]
+            }, {
+                "name": "Tony",
+                "age": 16,
+                "gender": 0,
+                "hobby": [
+                    "game", "dance"
+                ]
+            }
+        ]
+    }
+}
+#CE
+其实上面的效果有点像`Group`有点像了，再加上一个`Sort()`。。简直就是一模一样。。。连作者自己都懵逼了。。。就应该在`Min/Max()`内部使用`Group()` + `Sort()`实现的。。算了算了。。代码都写完了。但是很显然`Sort()`必然会降低效率。。但是话又说回来。。小数据量不在乎效率。。但是大数据量呢？？？大数据量你给我说你用`Json`数组保存？？？？你食不食油饼？？？
+
+#O avg, sum
+
+`Avg()` `Sum()`分别用于计算平均值和汇总，可以不指定或者指定多个`key`。
+#CS cs
+Console.WriteLine(json_src.Avg("age").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "age": {
+        "count": 4,         // 其中 4 个元素参与了计算
+        "value": 19.5       // 平均值 19.5
+    }
+}
+#CE
+`Sum()`返回值与`Avg()`一致，唯一不同的是，`value`一个是平均值，一个是汇总。
+
+#O STJsonPath.Name
+
+在上面的演示中我们有使用指定一个字段进行数据操作，在结果的`json`中会以这个字段名称作为一个`key`输出。但是上面并没有强调是在指定`key`进行操作，而是`path`。只是路径比较简单让我们看起来像是`key`。
+如果这样进行聚合呢？
+#CS cs
+Console.WriteLine(json_src.Terms("hobby[0]").ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "hobby[0]": [
+        {
+            "value": "cooking",
+            "count": 1
+        }, {
+            "value": "game",
+            "count": 1
+        }, {
+            "value": "draw",
+            "count": 1
+        }, {
+            "value": "sing",
+            "count": 1
+        }
+    ]
+}
+#CE
+好像看上去很奇怪的样子。其实`STJsonPath`有一个`Name`属性。
+#CS cs
+Console.WriteLine(json_src.Terms(new STJsonPath("test", "hobby[0]")).ToString(4));
+/*******************************************************************************
+ *                                [output]                                     *
+ *******************************************************************************/
+{
+    "test": [
+        {
+            "value": "cooking",
+            "count": 1
+        }, {
+            "value": "game",
+            "count": 1
+        }, {
+            "value": "draw",
+            "count": 1
+        }, {
+            "value": "sing",
+            "count": 1
+        }
+    ]
+}
+#CE
+
+#T THE END
+
+非常感谢看到最后，作者写的都快要疯掉了，一半的时候就想摆烂放弃了。咬咬牙终于完成了。如果在使用过程中遇到什么问题请一定联系作者，作者一定在第一时间用小本本记录下来。至于改不改。。。日后再说。。
+
+#HS black|white
+#US
+TG: DebugST
+QQ: 2212233137
+Mail: 2212233137@qq.com
+#UE
+#HE

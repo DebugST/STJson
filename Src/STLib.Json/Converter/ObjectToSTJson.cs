@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections;
-using System.Reflection;
-using System.Text;
 
 using ME = STLib.Json.ObjectToSTJson;
 
@@ -10,34 +8,28 @@ namespace STLib.Json
     internal class ObjectToSTJson
     {
         private static Type m_type_attr_stjson = typeof(STJsonAttribute);
-        private static Type m_type_attr_stjson_property = typeof(STJsonPropertyAttribute);
 
-        public static STJson Get(object obj, bool ignoreAttribute) {
+        public static STJson Get(object obj, STJsonSetting setting) {
             if (obj == null) {
                 return null;
             }
-            STJson json = new STJson();
+            if (obj is STJson) return (STJson)obj;
             var t = obj.GetType();
-            var pt_name = t.FullName;
-            if (STJsonBasicDataType.Contains(pt_name)) {
-                var tm = STJsonBasicDataType.Get(pt_name);
-                switch (tm.ValueType) {
-                    case STJsonValueType.Number:
-                        json.SetValue(Convert.ToDouble(obj));
-                        return json;
-                    case STJsonValueType.String:
-                        json.SetValue(obj.ToString());
-                        return json;
-                    case STJsonValueType.Boolean:
-                        json.SetValue((bool)obj);
-                        return json;
-                    case STJsonValueType.Datetime:
-                        json.SetValue(((DateTime)obj).ToString("O"));
-                        return json;
+            STJson json = new STJson();
+            bool bProcessed = true;
+            STJsonConverter converter = STJson.GetConverter(t);
+            if (converter != null) {
+                var json_custom = converter.ObjectToJson(t, obj, ref bProcessed);
+                if (bProcessed) {
+                    return json_custom;
                 }
             }
             if (t.IsEnum) {
-                json.SetValue(Convert.ToDouble(obj));
+                if (setting.EnumUseNumber) {
+                    json.SetValue(Convert.ToInt64(obj));
+                } else {
+                    json.SetValue(Convert.ToString(obj));
+                }
                 return json;
             }
 
@@ -49,7 +41,7 @@ namespace STLib.Json
                 for (int i = 0; i < nDim; i++) {
                     nLens[i] = arr.GetLength(i);
                 }
-                json.SetValue(GetArray(arr, nLens, nIndices, 0, ignoreAttribute));
+                json.SetValue(GetArray(arr, nLens, nIndices, 0, setting));
                 return json;
             }
             if (t.IsGenericType) {
@@ -61,8 +53,8 @@ namespace STLib.Json
                     IEnumerator ie_keys = idic.Keys.GetEnumerator();// ic_keys.GetEnumerator();
                     IEnumerator ie_values = idic.Values.GetEnumerator();// ic_values.GetEnumerator();
                     while (ie_keys.MoveNext() && ie_values.MoveNext()) {
-                        json.SetKey(ie_keys.Current.ToString())
-                            .SetValue(ME.Get(ie_values.Current, ignoreAttribute));
+                        var strKey = ie_keys.Current.ToString();
+                        json.SetKey(strKey).SetValue(ME.Get(ie_values.Current, setting));
                     }
                     return json;
                 }
@@ -72,63 +64,81 @@ namespace STLib.Json
                     //var method = t.GetMethod("GetEnumerator");
                     IEnumerator ie = ((IEnumerable)obj).GetEnumerator();// (IEnumerator)method.Invoke(obj, null);
                     while (ie.MoveNext()) {
-                        json.Append(ME.Get(ie.Current, ignoreAttribute));
+                        json.Append(ME.Get(ie.Current, setting));
                     }
                     return json;
                 }
             }
+            json.SetModel(STJsonValueType.Object);
             var fps = FPInfo.GetFPInfo(t);
-            if (fps.Count == 0) {
-                json.SetValue(obj.ToString());
-                return json;
-            }
-            var serilizaModel = STJsonSerilizaModel.All;
-            if (!ignoreAttribute) {
-#if NETSTANDARD
-                var attr = t.GetCustomAttribute(m_type_attr_stjson);
-                if (attr != null) {
-                    serilizaModel = ((STJsonAttribute)attr).SerilizaModel;
-                }
-#else
+            var serilizaModel = STJsonSerilizaMode.All;
+            if (!setting.IgnoreAttribute) {
+                //#if NETSTANDARD
+                //                var attr = t.GetCustomAttribute(m_type_attr_stjson);
+                //                if (attr != null) {
+                //                    serilizaModel = ((STJsonAttribute)attr).SerilizaModel;
+                //                }
+                //#else
                 var attrs = t.GetCustomAttributes(m_type_attr_stjson, true);
                 if (attrs != null && attrs.Length > 0) {
-                    serilizaModel = ((STJsonAttribute)attrs[0]).SerilizaModel;
+                    serilizaModel = ((STJsonAttribute)attrs[0]).SerilizaMode;
                 }
-#endif
+                //#endif
             }
-            json.SetModel(STJsonValueType.Object);
             foreach (var p in fps) {
                 switch (serilizaModel) {
-                    case STJsonSerilizaModel.All:
+                    case STJsonSerilizaMode.All:
                         break;
-                    case STJsonSerilizaModel.OnlyMarked:
-                        if (p.GetCustomAttribute(m_type_attr_stjson_property) == null) {
+                    case STJsonSerilizaMode.Include:
+                        if (p.PropertyAttribute == null) {
                             continue;
                         }
                         break;
-                    case STJsonSerilizaModel.ExcudeMarked:
-                        if (p.GetCustomAttribute(m_type_attr_stjson_property) != null) {
+                    case STJsonSerilizaMode.Exclude:
+                        if (p.PropertyAttribute != null) {
                             continue;
                         }
                         break;
                 }
+                switch (setting.KyeMode) {
+                    case STJsonSetting.KeyMode.Include:
+                        if (!setting.KeyList.Contains(p.KeyName)) {
+                            continue;
+                        }
+                        break;
+                    case STJsonSetting.KeyMode.Exclude:
+                        if (setting.KeyList.Contains(p.KeyName)) {
+                            continue;
+                        }
+                        break;
+                }
+                converter = p.Converter;
+                if (converter == null) {
+                    converter = STJson.GetCustomConverter(p.KeyName);
+                }
+                if (converter != null) {
+                    bProcessed = true;
+                    var json_custom = converter.ObjectToJson(t, p.GetValue(obj), ref bProcessed);
+                    if (bProcessed) {
+                        return json.SetItem(p.KeyName, json_custom);
+                    }
+                }
                 if (!p.CanGetValue) continue;
-                json.SetKey(p.Name)
-                    .SetValue(ObjectToSTJson.Get(p.GetValue(obj), ignoreAttribute));
+                json.SetKey(p.KeyName).SetValue(ME.Get(p.GetValue(obj), setting));
             }
             return json;
         }
 
-        private static STJson GetArray(Array arr, int[] nLens, int[] nIndices, int nLevel, bool ignoreAttribute) {
+        private static STJson GetArray(Array arr, int[] nLens, int[] nIndices, int nLevel, STJsonSetting setting) {
             STJson json = new STJson();
             json.SetModel(STJsonValueType.Array);
             for (int i = 0; i < nLens[nLevel]; i++) {
                 nIndices[nLevel] = i;
                 if (nLevel == nLens.Length - 1) {
                     var obj = arr.GetValue(nIndices);
-                    json.Append(ObjectToSTJson.Get(obj, ignoreAttribute));
+                    json.Append(ME.Get(obj, setting));
                 } else {
-                    json.Append(GetArray(arr, nLens, nIndices, nLevel + 1, ignoreAttribute));
+                    json.Append(GetArray(arr, nLens, nIndices, nLevel + 1, setting));
                 }
             }
             return json;

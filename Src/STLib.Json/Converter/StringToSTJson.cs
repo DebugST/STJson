@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
 using ME = STLib.Json.StringToSTJson;
 
@@ -9,48 +8,51 @@ namespace STLib.Json
     internal class StringToSTJson
     {
         public static STJson Get(string strJson) {
-            var smbs = STJsonParse.GetSymbols(strJson);
-            if (smbs.Count == 0) {
+            var tokens = STJsonTokenizer.GetTokens(strJson);
+            if (tokens.Count == 0) {
                 throw new STJsonParseException(0, "Invalid string.");
             }
             int nIndex = 1;
-            if (smbs[0].Value == "{") {
-                return ME.GetObject(smbs, ref nIndex);
+            if (tokens[0].Value == "{") {
+                return ME.GetObject(tokens, ref nIndex);
             }
 
-            if (smbs[0].Value == "[") {
-                return ME.GetArray(smbs, ref nIndex);
+            if (tokens[0].Value == "[") {
+                return ME.GetArray(tokens, ref nIndex);
             }
             throw new STJsonParseException(
-                smbs[0].Index,
-                "Invalid char form index [" + smbs[0].Index + "]{" + smbs[0].Value + "}"
+                tokens[0].Index,
+                "Invalid char form index [" + tokens[0].Index + "]{" + tokens[0].Value + "}"
                 );
         }
 
-        private static STJson GetObject(List<STJsonParse.Symbol> smbs, ref int nIndex) {
+        private static STJson GetObject(List<STJsonTokenizer.Token> tokens, ref int nIndex) {
             STJson json = new STJson();
             json.SetModel(STJsonValueType.Object);
-            if (smbs[nIndex].Value == "}") return json;
-            while (nIndex < smbs.Count) {
-                var smb = smbs[nIndex++];
-                if (smb.Type != STJsonParse.SymbolType.String) {
+            if (tokens[nIndex].Value == "}") {
+                nIndex++;
+                return json;
+            }
+            while (nIndex < tokens.Count) {
+                var token = tokens[nIndex++];
+                if (token.Type != STJsonTokenizer.TokenType.String) {
                     throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
-                var jv = json.SetKey(smb.Value);
-                smb = smbs[nIndex++];
-                if (smb.Value != ":") {
+                var jv = json.SetKey(token.Value);
+                token = tokens[nIndex++];
+                if (token.Value != ":") {
                     throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
-                smb = smbs[nIndex++];
-                switch (smb.Type) {
-                    case STJsonParse.SymbolType.KeyWord:
-                        switch (smb.Value) {
+                token = tokens[nIndex++];
+                switch (token.Type) {
+                    case STJsonTokenizer.TokenType.KeyWord:
+                        switch (token.Value) {
                             case "true":
                                 jv.SetValue(true);
                                 break;
@@ -62,54 +64,60 @@ namespace STLib.Json
                                 break;
                         }
                         break;
-                    case STJsonParse.SymbolType.String:
-                        jv.SetValue(smb.Value);
+                    case STJsonTokenizer.TokenType.String:
+                        jv.SetValue(token.Value);
                         break;
-                    case STJsonParse.SymbolType.Number:
-                        jv.SetValue(double.Parse(smb.Value));
+                    case STJsonTokenizer.TokenType.Long:
+                        jv.SetValue(Convert.ToInt64(token.Value));
                         break;
-                    case STJsonParse.SymbolType.ObjectStart:
-                        jv.SetValue(ME.GetObject(smbs, ref nIndex));
+                    case STJsonTokenizer.TokenType.Double:
+                        jv.SetValue(Convert.ToDouble(token.Value));
                         break;
-                    case STJsonParse.SymbolType.ArrayStart:
-                        jv.SetValue(ME.GetArray(smbs, ref nIndex));
+                    case STJsonTokenizer.TokenType.ObjectStart:
+                        jv.SetValue(ME.GetObject(tokens, ref nIndex));
                         break;
-                    case STJsonParse.SymbolType.ObjectEnd:
+                    case STJsonTokenizer.TokenType.ArrayStart:
+                        jv.SetValue(ME.GetArray(tokens, ref nIndex));
+                        break;
+                    case STJsonTokenizer.TokenType.ObjectEnd:
                         return json;
                     default:
                         throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
-                smb = smbs[nIndex++];
-                switch (smb.Value) {
+                token = tokens[nIndex++];
+                switch (token.Value) {
                     case ",": continue;
                     case "}": return json;
                     default:
                         throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
             }
             throw new STJsonParseException(-1, "Incomplete string.");
         }
 
-        private static STJson GetArray(List<STJsonParse.Symbol> smbs, ref int nIndex) {
+        private static STJson GetArray(List<STJsonTokenizer.Token> smbs, ref int nIndex) {
             STJson json = new STJson();
             json.SetModel(STJsonValueType.Array);
             while (nIndex < smbs.Count) {
-                var smb = smbs[nIndex++];
-                switch (smb.Type) {
-                    case STJsonParse.SymbolType.String:
-                        json.Append(smb.Value);
+                var token = smbs[nIndex++];
+                switch (token.Type) {
+                    case STJsonTokenizer.TokenType.String:
+                        json.Append(token.Value);
                         break;
-                    case STJsonParse.SymbolType.Number:
-                        json.Append(double.Parse(smb.Value));
+                    case STJsonTokenizer.TokenType.Long:
+                        json.Append(Convert.ToInt64(token.Value));
                         break;
-                    case STJsonParse.SymbolType.KeyWord:
-                        switch (smb.Value) {
+                    case STJsonTokenizer.TokenType.Double:
+                        json.Append(Convert.ToDouble(token.Value));
+                        break;
+                    case STJsonTokenizer.TokenType.KeyWord:
+                        switch (token.Value) {
                             case "true":
                                 json.Append(true);
                                 break;
@@ -121,28 +129,28 @@ namespace STLib.Json
                                 break;
                         }
                         break;
-                    case STJsonParse.SymbolType.ObjectStart:
+                    case STJsonTokenizer.TokenType.ObjectStart:
                         json.Append(ME.GetObject(smbs, ref nIndex));
                         break;
-                    case STJsonParse.SymbolType.ArrayStart:
+                    case STJsonTokenizer.TokenType.ArrayStart:
                         json.Append(ME.GetArray(smbs, ref nIndex));
                         break;
-                    case STJsonParse.SymbolType.ArrayEnd:
+                    case STJsonTokenizer.TokenType.ArrayEnd:
                         return json;
                     default:
                         throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
-                smb = smbs[nIndex++];
-                switch (smb.Value) {
+                token = smbs[nIndex++];
+                switch (token.Value) {
                     case ",": continue;
                     case "]": return json;
                     default:
                         throw new STJsonParseException(
-                        smb.Index,
-                        "Invalid char form index [" + smb.Index + "]{" + smb.Value + "}"
+                        token.Index,
+                        "Invalid char form index [" + token.Index + "]{" + token.Value + "}"
                         );
                 }
             }

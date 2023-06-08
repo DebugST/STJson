@@ -1,24 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Text.RegularExpressions;
+﻿using System.Collections.Generic;
+using System.Text;
+
+using ME = STLib.Json.STJsonTokenizer;
 
 namespace STLib.Json
 {
-    internal class STJsonParse
+    internal class STJsonTokenizer
     {
-        public enum SymbolType
+        public enum TokenType
         {
-            KeyWord, Number, String, ItemSplitor, KVSplitor, ObjectStart, ObjectEnd, ArrayStart, ArrayEnd
+            KeyWord, Long, Double, String, ItemSplitor, KVSplitor, ObjectStart, ObjectEnd, ArrayStart, ArrayEnd
         }
 
-        public struct Symbol
+        public struct Token
         {
             public int Index;
             public string Value;
-            public SymbolType Type;
+            public TokenType Type;
 
-            public Symbol(int nIndex, string strValue, SymbolType type) {
+            public Token(int nIndex, string strValue, TokenType type) {
                 this.Index = nIndex;
                 this.Value = strValue;
                 this.Type = type;
@@ -29,10 +29,9 @@ namespace STLib.Json
             }
         }
 
-        private static Regex m_reg_escape = new Regex(@"\\.{1,5}");
         private static Dictionary<string, string> m_dic_char_hex = new Dictionary<string, string>();
 
-        public STJsonParse() {
+        static STJsonTokenizer() {
             for (int i = 0; i <= 0xFFFF; i++) {
                 if (i <= 0xFF) {
                     m_dic_char_hex.Add(i.ToString("X").PadLeft(2, '0'), ((char)i).ToString());
@@ -41,62 +40,62 @@ namespace STLib.Json
             }
         }
 
-        public static List<Symbol> GetSymbols(string strJson) {
-            Symbol smb = new Symbol();
-            List<Symbol> lst = new List<Symbol>();
+        public static List<Token> GetTokens(string strJson) {
+            Token token = new Token();
+            List<Token> lst = new List<Token>();
             Stack<char> stack_region = new Stack<char>();
             for (int i = 0; i < strJson.Length; i++) {
                 var c = strJson[i];
                 if (('0' <= c && c <= '9') || c == '-') {
-                    smb = STJsonParse.GetNumber(strJson, i);
-                    lst.Add(smb);
-                    i += smb.Value.Length - 1;
+                    token = ME.GetNumber(strJson, i);
+                    lst.Add(token);
+                    i += token.Value.Length - 1;
                     continue;
                 }
                 switch (c) {
                     case '{':   // object start
                         stack_region.Push('{');
-                        lst.Add(new Symbol(i, "{", SymbolType.ObjectStart));
+                        lst.Add(new Token(i, "{", TokenType.ObjectStart));
                         continue;
                     case '[':   // array start
                         stack_region.Push('[');
-                        lst.Add(new Symbol(i, "[", SymbolType.ArrayStart));
+                        lst.Add(new Token(i, "[", TokenType.ArrayStart));
                         continue;
                     case ',':   // item splitor
-                        lst.Add(new Symbol(i, ",", SymbolType.ItemSplitor));
+                        lst.Add(new Token(i, ",", TokenType.ItemSplitor));
                         continue;
                     case ':':   // key value splitor
-                        lst.Add(new Symbol(i, ":", SymbolType.KVSplitor));
+                        lst.Add(new Token(i, ":", TokenType.KVSplitor));
                         continue;
                     case ']':   // array end
                         if (stack_region.Count == 0 || stack_region.Pop() != '[') {
                             throw new STJsonParseException(i, "Invalid char, missing '[' or '}'. Index: " + i);
                         }
-                        lst.Add(new Symbol(i, "]", SymbolType.ArrayEnd));
+                        lst.Add(new Token(i, "]", TokenType.ArrayEnd));
                         continue;
                     case '}':   // object end
                         if (stack_region.Count == 0 || stack_region.Pop() != '{') {
                             throw new STJsonParseException(i, "Invalid char, missing '[' or '}'. Index: " + i);
                         }
-                        lst.Add(new Symbol(i, "}", SymbolType.ObjectEnd));
+                        lst.Add(new Token(i, "}", TokenType.ObjectEnd));
                         continue;
                     case 't':   // [keyword] - true
-                        lst.Add(STJsonParse.GetKeyWord(strJson, i, "true"));
+                        lst.Add(ME.GetKeyWord(strJson, i, "true"));
                         i += 3;
                         continue;
                     case 'f':   // [keyword] - false
-                        lst.Add(STJsonParse.GetKeyWord(strJson, i, "false"));
+                        lst.Add(ME.GetKeyWord(strJson, i, "false"));
                         i += 4;
                         continue;
                     case 'n':   // [keyword] - null
-                        lst.Add(STJsonParse.GetKeyWord(strJson, i, "null"));
+                        lst.Add(ME.GetKeyWord(strJson, i, "null"));
                         i += 3;
                         continue;
                     case '"':   // string
-                        smb = STJsonParse.GetString(strJson, i);
-                        i += smb.Value.Length + 1;
-                        smb.Value = STJsonParse.ParseString(smb);
-                        lst.Add(smb);
+                        token = ME.GetString(strJson, i);
+                        i += token.Value.Length + 1;
+                        token.Value = ME.ParseString(token);
+                        lst.Add(token);
                         continue;
                     case ' ':
                     case '\r':  // space
@@ -110,11 +109,11 @@ namespace STLib.Json
             return lst;
         }
 
-        private static Symbol GetNumber(string strText, int nIndex) {
+        private static Token GetNumber(string strText, int nIndex) {
             bool bDot = false;
-            Symbol smb = new Symbol() {
+            Token token = new Token() {
                 Index = nIndex,
-                Type = SymbolType.Number
+                Type = TokenType.Long
             };
             for (int i = nIndex; i < strText.Length; i++) {
                 var c = strText[i];
@@ -129,83 +128,92 @@ namespace STLib.Json
                         throw new STJsonParseException(i, "Invalid char. Index: " + i);
                     }
                     bDot = true;
+                    token.Type = TokenType.Double;
                     continue;
                 }
                 if ('0' <= c && c <= '9') continue;
-                smb.Value = strText.Substring(nIndex, i - nIndex);
-                return smb;
+                token.Value = strText.Substring(nIndex, i - nIndex);
+                return token;
             }
-            throw new STJsonParseException(-1, "Incomplete string.");
+            token.Value = strText.Substring(nIndex);
+            return token;
         }
 
-        private static Symbol GetKeyWord(string strText, int nIndex, string strKeyWord) {
-            Symbol smb = new Symbol() {
+        private static Token GetKeyWord(string strText, int nIndex, string strKeyWord) {
+            Token token = new Token() {
                 Index = nIndex,
-                Type = SymbolType.KeyWord
+                Type = TokenType.KeyWord
             };
             if (strText.Substring(nIndex, strKeyWord.Length) == strKeyWord) {
-                smb.Value = strKeyWord;
-                return smb;
+                token.Value = strKeyWord;
+                return token;
             }
             throw new STJsonParseException(nIndex, "Invalid char. Index: " + nIndex);
         }
 
-        private static Symbol GetString(string strText, int nIndex) {
+        private static Token GetString(string strText, int nIndex) {
             char ch_last = '\0';
-            Symbol smb = new Symbol() {
+            Token token = new Token() {
                 Index = nIndex,
-                Type = SymbolType.String
+                Type = TokenType.String
             };
             if (strText[nIndex] != '"') {
-                return smb;
+                return token;
             }
             for (int i = nIndex + 1; i < strText.Length; i++) {
                 var ch = strText[i];
                 if (ch == '"' && ch_last != '\\') {
-                    smb.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
-                    return smb;
+                    token.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
+                    return token;
                 }
                 ch_last = ch;
             }
             throw new STJsonParseException(nIndex, "Can not get a string. Index: " + nIndex);
         }
 
-        private static string ParseString(Symbol smb) {
-            string strText = smb.Value;
-            string strHex = string.Empty;
-            return m_reg_escape.Replace(strText, (m) => {
-                switch (m.Value[1]) {
-                    case 't':
-                        return "\t" + m.Value.Substring(2);
-                    case 'r':
-                        return "\r" + m.Value.Substring(2);
-                    case 'n':
-                        return "\n" + m.Value.Substring(2);
-                    case 'x':
-                        if (m.Length >= 4) {
-                            strHex = m.Value.Substring(2, 2).ToUpper();
-                            if (!m_dic_char_hex.ContainsKey(strHex)) {
-                                throw new STJsonCastException(
-                                    "Can not parse the hex string [" + m.Value + "] from string [" + strText + "]." +
-                                    " Index: " + smb.Index);
-                            }
-                            return m_dic_char_hex[strHex] + m.Value.Substring(4);
-                        }
-                        break;
-                    case 'u':
-                        if (m.Length == 6) {
-                            strHex = m.Value.Substring(2, 2).ToUpper();
-                            if (!m_dic_char_hex.ContainsKey(strHex)) {
-                                throw new STJsonCastException(
-                                    "Can not parse the unicode string [" + m.Value + "] from string [" + strText + "]." +
-                                    " Index: " + smb.Index);
-                            }
-                            return m_dic_char_hex[strHex];
-                        }
-                        break;
+        private static string ParseString(Token token) {
+            int nHexLen = 0;
+            string strTemp = string.Empty;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < token.Value.Length; i++) {
+                var ch = token.Value[i];
+                if (ch != '\\') {
+                    sb.Append(ch);
+                    continue;
                 }
-                return m.Value.Substring(1);
-            });
+                i++;
+                if (i >= token.Value.Length) {
+                    throw new STJsonParseException(token.Index + i, ch);
+                }
+                ch = token.Value[i];
+                switch (ch) {
+                    case 'r': sb.Append('\r'); continue;
+                    case 'n': sb.Append('\n'); continue;
+                    case 't': sb.Append('\t'); continue;
+                    case 'f': sb.Append('\f'); continue;
+                    case 'b': sb.Append('\b'); continue;
+                    case 'a': sb.Append('\a'); continue;
+                    case 'v': sb.Append('\v'); continue;
+                    case '0': sb.Append('\0'); continue;
+                    case 'x':
+                    case 'u':
+                        nHexLen = ch == 'x' ? 2 : 4;
+                        if (i + nHexLen >= token.Value.Length) {
+                            throw new STJsonParseException(token.Index + i, ch);
+                        }
+                        strTemp = token.Value.Substring(i + 1, nHexLen).ToUpper();
+                        if (!m_dic_char_hex.ContainsKey(strTemp)) {
+                            throw new STJsonParseException(token.Index + i + 1, strTemp[0]);
+                        }
+                        sb.Append(m_dic_char_hex[strTemp]);
+                        i += nHexLen;
+                        continue;
+                    default:
+                        sb.Append(ch);
+                        continue;
+                }
+            }
+            return sb.ToString();
         }
     }
 }

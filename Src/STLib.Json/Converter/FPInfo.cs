@@ -1,31 +1,25 @@
 ﻿using System;
-using System.Reflection;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace STLib.Json
 {
-    internal struct FPInfo
+    internal class FPInfo
     {
         private FieldInfo m_f_info;
         private PropertyInfo m_p_info;
 
-        public string Name {
-            get {
-                if (m_f_info != null) {
-                    return m_f_info.Name;
-                }
-                return m_p_info.Name;
-            }
-        }
+        private static Type m_type_attr_property = typeof(STJsonPropertyAttribute);
+        private static Type m_type_attr_converter = typeof(STJsonConverterAttribute);
+        private static Dictionary<int, STJsonConverter> m_dic_type_map = new Dictionary<int, STJsonConverter>();
+        private static Dictionary<int, List<FPInfo>> m_dic_fp_infos = new Dictionary<int, List<FPInfo>>();
 
-        public Type Type {
-            get {
-                if (m_f_info != null) {
-                    return m_f_info.FieldType;
-                }
-                return m_p_info.PropertyType;
-            }
-        }
+        public string Name { get; private set; }
+        public string KeyName { get; private set; }
+        public STJsonConverter Converter { get; private set; }
+        public STJsonPropertyAttribute PropertyAttribute { get; private set; }
+
+        public Type Type { get; private set; }
 
         public bool CanSetValue {
             get {
@@ -79,18 +73,53 @@ namespace STLib.Json
         }
 
         public static List<FPInfo> GetFPInfo(Type type) {
-            List<FPInfo> lst = new List<FPInfo>();
+            List<FPInfo> lst = null;
+            int nCode = type.GetHashCode();
+            if (m_dic_fp_infos.ContainsKey(nCode)) {
+                return m_dic_fp_infos[nCode];
+            } else {
+                lst = new List<FPInfo>();
+                m_dic_fp_infos.Add(nCode, lst);
+            }
             var fs = type.GetFields(BindingFlags.Instance | BindingFlags.Public);
             var ps = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
             foreach (var v in fs) {
                 FPInfo fp = new FPInfo();
                 fp.m_f_info = v;
+                fp.Name = v.Name;
+                fp.Type = v.FieldType;
                 lst.Add(fp);
             }
             foreach (var v in ps) {
                 FPInfo fp = new FPInfo();
                 fp.m_p_info = v;
+                fp.Name = v.Name;
+                fp.Type = v.PropertyType;
                 lst.Add(fp);
+            }
+            for (int i = 0; i < lst.Count; i++) {
+                var fp = lst[i];
+                var attr = fp.GetCustomAttribute(m_type_attr_property);
+                if (attr != null) {
+                    fp.PropertyAttribute = attr as STJsonPropertyAttribute;
+                }
+                if (fp.PropertyAttribute != null && !string.IsNullOrEmpty(fp.PropertyAttribute.Name)) {
+                    fp.KeyName = fp.PropertyAttribute.Name;
+                } else {
+                    fp.KeyName = fp.Name;
+                }
+                STJsonConverter converter = null;
+                attr = fp.GetCustomAttribute(m_type_attr_converter);
+                if (attr == null) {
+                    continue;
+                }
+                nCode = attr.GetType().GetHashCode();
+                if (m_dic_type_map.ContainsKey(nCode)) {
+                    converter = m_dic_type_map[nCode];
+                } else {
+                    converter = (STJsonConverter)Activator.CreateInstance(((STJsonConverterAttribute)attr).Type);
+                }
+                fp.Converter = converter;
             }
             return lst;
         }

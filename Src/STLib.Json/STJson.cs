@@ -5,7 +5,7 @@ using System.Text;
 
 namespace STLib.Json
 {
-    public partial class STJson : IEnumerable
+    public partial class STJson : IEnumerable, ICloneable
     {
         public string Key { get; private set; }
         public object Value { get; private set; }
@@ -33,7 +33,7 @@ namespace STLib.Json
         public STJson this[string key] {
             get {
                 if (this.ValueType != STJsonValueType.Object) {
-                    throw new Exception("Current STJson is not Object.");
+                    throw new STJsonException("Current STJson is not Object.");
                 }
                 if (m_dic_values.ContainsKey(key)) {
                     return m_dic_values[key];
@@ -45,7 +45,7 @@ namespace STLib.Json
         public STJson this[int index] {
             get {
                 if (this.ValueType != STJsonValueType.Array) {
-                    throw new Exception("Current STJson is not Array.");
+                    throw new STJsonException("Current STJson is not Array.");
                 }
                 return m_lst_values[index];
             }
@@ -63,6 +63,18 @@ namespace STLib.Json
             this.Key = key;
         }
 
+        public string[] GetKeys() {
+            if (m_dic_values == null) {
+                return null;
+            }
+            int i = 0;
+            string[] strs = new string[m_dic_values.Count];
+            foreach (var v in m_dic_values.Keys) {
+                strs[i++] = v;
+            }
+            return strs;
+        }
+
         public STJson SetKey(string key) {
             this.SetModel(STJsonValueType.Object);
             if (key == null) {
@@ -77,37 +89,54 @@ namespace STLib.Json
         public STJson SetItem(string key, string value) {
             STJson json = this.SetKey(key);
             json.SetValue(value);
-            return json;
+            return this;
         }
 
-        public STJson SetItem(string key, bool value) {
+        public STJson SetItem(string key, int value) {
             STJson json = this.SetKey(key);
             json.SetValue(value);
-            return json;
+            return this;
+        }
+
+        public STJson SetItem(string key, long value) {
+            STJson json = this.SetKey(key);
+            json.SetValue(value);
+            return this;
         }
 
         public STJson SetItem(string key, double value) {
             STJson json = this.SetKey(key);
             json.SetValue(value);
-            return json;
+            return this;
+        }
+
+        public STJson SetItem(string key, bool value) {
+            STJson json = this.SetKey(key);
+            json.SetValue(value);
+            return this;
         }
 
         public STJson SetItem(string key, DateTime value) {
             STJson json = this.SetKey(key);
             json.SetValue(value);
-            return json;
+            return this;
         }
 
-        public STJson SetItem(string key, STJson value) {
+        public STJson SetItem(string key, STJson json) {
+            this.SetKey(key).SetValue(json);
+            return this;
+        }
+
+        public STJson SetItem(string key, object obj) {
             STJson json = this.SetKey(key);
-            json.SetValue(value);
-            return json;
+            json.SetValue(obj);
+            return this;
         }
 
 
         public STJson Delete(string key) {
             if (this.ValueType != STJsonValueType.Object) {
-                throw new Exception("Current STJson is not Object.");
+                throw new STJsonException("Current STJson is not Object.");
             }
             if (key == null) {
                 key = "null";
@@ -122,36 +151,74 @@ namespace STLib.Json
 
 
         public STJson Append(string value) {
-            return this.Append(STJson.FromValue(value));
+            return this.Append(STJson.FromObject(value));
+        }
+
+        public STJson Append(int value) {
+            return this.Append(STJson.FromObject(value));
+        }
+
+        public STJson Append(long value) {
+            return this.Append(STJson.FromObject(value));
         }
 
         public STJson Append(double value) {
-            return this.Append(STJson.FromValue(value));
+            return this.Append(STJson.FromObject(value));
         }
 
         public STJson Append(bool value) {
-            return this.Append(STJson.FromValue(value));
+            return this.Append(STJson.FromObject(value));
         }
 
         public STJson Append(DateTime dateTime) {
-            return this.Append(STJson.FromValue(dateTime));
+            return this.Append(STJson.FromObject(dateTime));
         }
 
         public STJson Append(STJson json) {
             this.SetModel(STJsonValueType.Array);
             m_lst_values.Add(json);
-            return json;
+            return this;
         }
 
-        public STJson[] Append(params STJson[] jsons) {
+        public STJson Append(params object[] objs) {
             this.SetModel(STJsonValueType.Array);
-            m_lst_values.AddRange(jsons);
-            return jsons;
+            foreach (var v in objs) {
+                this.Append(STJson.FromObject(v));
+            }
+            return this;
+        }
+
+        public STJson Insert(int nIndex, string value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, int value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, long value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, double value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, bool value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, DateTime value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
+        }
+
+        public STJson Insert(int nIndex, object value) {
+            return this.Insert(nIndex, STJson.FromObject(value));
         }
 
         public STJson Insert(int nIndex, STJson json) {
             if (this.ValueType != STJsonValueType.Object) {
-                throw new Exception("Current STJson is not Array.");
+                throw new STJsonException("Current STJson is not Array.");
             }
             m_lst_values.Insert(nIndex, json);
             return this;
@@ -159,35 +226,21 @@ namespace STLib.Json
 
         public STJson RemoveAt(int nIndex) {
             if (this.ValueType != STJsonValueType.Object) {
-                throw new Exception("Current STJson is not Array.");
+                throw new STJsonException("Current STJson is not Array.");
             }
             var json = m_lst_values[nIndex];
             m_lst_values.RemoveAt(nIndex);
             return json;
         }
 
-
-        public string GetValue() {
-            if (this.Value == null) {
-                return "";
+        public void Clear() {
+            if (m_dic_values != null) {
+                m_dic_values.Clear();
             }
-            return this.Value.ToString();
-        }
-
-        public T GetValue<T>() {
-            if (this.Value == null) {
-                return default(T);
+            if (m_lst_values != null) {
+                m_lst_values.Clear();
             }
-            var t = typeof(T);
-            if (STJsonBasicDataType.Contains(t.FullName)) {
-                return (T)STJsonBasicDataType.Get(t.FullName).Converter(this.Value);
-            }
-            return (T)this.Value;
-        }
-
-        public void SetValue(DateTime dateTime) {
-            this.Value = dateTime;
-            this.SetModel(STJsonValueType.Datetime);
+            this.Value = null;
         }
 
         public void SetValue(string strText) {
@@ -195,14 +248,35 @@ namespace STLib.Json
             this.SetModel(STJsonValueType.String);
         }
 
+        public void SetValue(int number) {
+            this.Value = number;
+            this.SetModel(STJsonValueType.Long);
+        }
+
+        public void SetValue(long number) {
+            this.Value = number;
+            this.SetModel(STJsonValueType.Long);
+        }
+
+        public void SetValue(float number) {
+            this.Value = number;
+            this.SetModel(STJsonValueType.Double);
+        }
+
+
+        public void SetValue(double number) {
+            this.Value = number;
+            this.SetModel(STJsonValueType.Double);
+        }
+
         public void SetValue(bool boolean) {
             this.Value = boolean;
             this.SetModel(STJsonValueType.Boolean);
         }
 
-        public void SetValue(double number) {
-            this.Value = number;
-            this.SetModel(STJsonValueType.Number);
+        public void SetValue(DateTime dateTime) {
+            this.Value = dateTime;
+            this.SetModel(STJsonValueType.Datetime);
         }
 
         public void SetValue(STJson json) {
@@ -214,6 +288,10 @@ namespace STLib.Json
             this.ValueType = json.ValueType;
             m_dic_values = json.m_dic_values;
             m_lst_values = json.m_lst_values;
+        }
+
+        public void SetValue(object obj) {
+            this.SetValue(STJson.FromObject(obj));
         }
 
         public override string ToString() {
@@ -229,18 +307,21 @@ namespace STLib.Json
 
         private void ToStringPrivate(StringBuilder sb) {
             switch (this.ValueType) {
-                case STJsonValueType.Number:
+                case STJsonValueType.Long:
+                case STJsonValueType.Double:
                     sb.Append(this.Value.ToString());
                     break;
                 case STJsonValueType.String:
                     if (this.Value == null) {
                         sb.Append("null");
                     } else {
-                        sb.Append("\"" + STJson.Escape(this.Value.ToString()) + "\"");
+                        sb.Append('\"');
+                        sb.Append(STJson.Escape(this.Value.ToString()));
+                        sb.Append('\"');
                     }
                     break;
                 case STJsonValueType.Boolean:
-                    sb.Append(this.Value.ToString().ToLower());
+                    sb.Append(true.Equals(this.Value) ? "true" : "false");
                     break;
                 case STJsonValueType.Array:
                     if (m_lst_values == null) {
@@ -262,6 +343,11 @@ namespace STLib.Json
                         sb[sb.Length - 1] = ']';
                     }
                     break;
+                case STJsonValueType.Datetime:
+                    sb.Append('\"');
+                    sb.Append(((DateTime)this.Value).ToString("O"));
+                    sb.Append('\"');
+                    break;
                 case STJsonValueType.Object:
                     if (m_dic_values == null) {
                         sb.Append("null");
@@ -269,7 +355,9 @@ namespace STLib.Json
                     }
                     sb.Append('{');
                     foreach (var v in m_dic_values) {
-                        sb.Append("\"" + STJson.Escape(v.Key.ToString()) + "\":");
+                        sb.Append('\"');
+                        sb.Append(STJson.Escape(v.Key.ToString()));
+                        sb.Append("\":");
                         v.Value.ToStringPrivate(sb);
                         sb.Append(',');
                     }
@@ -278,6 +366,9 @@ namespace STLib.Json
                     } else {
                         sb[sb.Length - 1] = '}';
                     }
+                    break;
+                default:
+                    sb.Append("{}");
                     break;
             }
         }
@@ -301,14 +392,42 @@ namespace STLib.Json
             return this.GetEnumerator();
         }
 
+        public STJson Clone() {
+            STJson json = new STJson();
+            json.Value = this.Value;
+            json.ValueType = this.ValueType;
+            if (m_dic_values != null && m_dic_values.Count > 0) {
+                if (json.m_dic_values == null) {
+                    json.m_dic_values = new Dictionary<string, STJson>();
+                }
+                foreach (var v in m_dic_values) {
+                    json.m_dic_values.Add(v.Key, v.Value.Clone());
+                }
+            }
+            if (m_lst_values != null && m_lst_values.Count > 0) {
+                if (json.m_lst_values == null) {
+                    json.m_lst_values = new List<STJson>();
+                }
+                foreach (var v in m_lst_values) {
+                    json.m_lst_values.Add(v.Clone());
+                }
+            }
+            return json;
+        }
+
+        object ICloneable.Clone() {
+            return this.Clone();
+        }
+
         internal void SetModel(STJsonValueType valueType) {
             if (this.ValueType == valueType) return;
             this.ValueType = valueType;
             switch (valueType) {
+                case STJsonValueType.Long:
+                case STJsonValueType.Double:
                 case STJsonValueType.String:
                 case STJsonValueType.Boolean:
                 case STJsonValueType.Datetime:
-                case STJsonValueType.Number:
                     m_dic_values = null;
                     m_lst_values = null;
                     break;
@@ -324,12 +443,17 @@ namespace STLib.Json
                         m_dic_values = new Dictionary<string, STJson>();
                     }
                     break;
-                case STJsonValueType.None:
+                default:// case STJsonValueType.Undefined:
                     this.Value = null;
                     m_dic_values = null;
                     m_lst_values = null;
                     break;
             }
+        }
+
+        internal void SetArray(List<STJson> lst) {
+            this.SetModel(STJsonValueType.Array);
+            m_lst_values = lst;
         }
     }
 }

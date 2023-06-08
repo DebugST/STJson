@@ -1,5 +1,3 @@
-[简体中文](./README_CN.md) [English](./README.md)
-
 # Introduction
 
 `STJson` is a `Json` parsing library based on the `MIT` open source protocol . The library is purely native implementation does not rely on any library , so it is very light and convenient , and powerful .

@@ -1,15 +1,30 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFrameworks>netstandard2.0;netstandard2.1;net35;net451;net46;net47;net48</TargetFrameworks>
-	</PropertyGroup>
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;netstandard2.0;net35;net47;net48</TargetFrameworks>
+    <Title>STJson</Title>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Authors>DebugST</Authors>
+    <Company>None</Company>
+    <RepositoryUrl>https://github.com/DebugST/STJson</RepositoryUrl>
+    <PackageProjectUrl>https://debugst.github.io/STJson</PackageProjectUrl>
+    <PackageIcon>STJson.icon.png</PackageIcon>
+    <PackageTags>json;stlib;debugst;</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>STJson is a Json parsing library based on the MIT open source protocol . The library is purely native implementation does not rely on any library , so it is very light and convenient , and powerful .</Description>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
 
-	<PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-		<DefineConstants>NETSTANDARD</DefineConstants>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.1'">
-		<DefineConstants>NETSTANDARD</DefineConstants>
-	</PropertyGroup>
+  <ItemGroup>
+    <None Include="..\sources\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\sources\STJson.icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>
