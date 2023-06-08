@@ -6,11 +6,7 @@
 
 HOME: [https://DebugST.github.io/STJson](https://DebugST.github.io/STJson)
 
-NuGet:
-
-```
-dotnet add package STLib.Json --version 1.0.0
-```
+NuGet: [https://www.nuget.org/packages/STLib.Json](https://www.nuget.org/packages/STLib.Json)
 
 Unlike other `Json` libraries, `STJson` not has objects similar to `JObject` and `JArray`. Just `STJson`. which can be either `Object` or `Array`. `STJson` has two indexers: `STJson[int]` and `STJson[string]`. The type of the current `Json` object can be determined by `STJson.ValueType`.
 
