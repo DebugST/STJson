@@ -47,6 +47,7 @@ a:hover{
     background-size: cover;
 }
 .div_top_content{
+    width:100%;
     max-width: 1024px;
     text-align: center;
     transform: translate(-50%, -50%);
