@@ -155,7 +155,7 @@ namespace STLib.Json
             bool bProcessed = true;
             var convert = STJsonBuildInConverter.Get(t);
             if (convert != null) {
-                var value = convert.JsonToObject(t, json, ref bProcessed);
+                var value = convert.JsonToObject(t, j, ref bProcessed);
                 if (bProcessed) {
                     return (T)value;
                 }
@@ -199,7 +199,7 @@ namespace STLib.Json
                 bool bProcessed = true;
                 var convert = STJsonBuildInConverter.Get(t);
                 if (convert != null) {
-                    var value = convert.JsonToObject(t, json, ref bProcessed);
+                    var value = convert.JsonToObject(t, j, ref bProcessed);
                     if (bProcessed) {
                         result = (T)value;
                         return true;

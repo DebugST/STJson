@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>net6.0;netstandard2.0;net35;net47;net48</TargetFrameworks>
@@ -9,7 +9,7 @@
     <RepositoryUrl>https://github.com/DebugST/STJson</RepositoryUrl>
     <PackageProjectUrl>https://debugst.github.io/STJson</PackageProjectUrl>
     <PackageIcon>STJson.icon.png</PackageIcon>
-    <PackageTags>json;stlib;debugst;</PackageTags>
+    <PackageTags>json;jsonpath;stlib;debugst;</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>STJson is a Json parsing library based on the MIT open source protocol . The library is purely native implementation does not rely on any library , so it is very light and convenient , and powerful .</Description>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
@@ -19,6 +19,7 @@ Support JsonPath syntax.
 Simple data aggregation processing.</PackageReleaseNotes>
     <Copyright>Copyright 2022 DebugST</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
