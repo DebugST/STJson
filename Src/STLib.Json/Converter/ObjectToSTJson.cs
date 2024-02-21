@@ -86,6 +86,9 @@ namespace STLib.Json
                 //#endif
             }
             foreach (var p in fps) {
+                if (!p.CanGetValue) {
+                    continue;
+                }
                 switch (serilizaModel) {
                     case STJsonSerilizaMode.All:
                         break;

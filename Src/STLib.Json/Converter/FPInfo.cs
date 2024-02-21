@@ -21,19 +21,23 @@ namespace STLib.Json
 
         public Type Type { get; private set; }
 
-        public bool CanSetValue {
-            get {
-                if (m_f_info != null) return true;
-                return m_p_info.GetSetMethod() != null;
-            }
-        }
+        public bool CanSetValue { get; private set; }
 
-        public bool CanGetValue {
-            get {
-                if (m_f_info != null) return true;
-                return m_p_info.GetGetMethod() != null;
-            }
-        }
+        public bool CanGetValue { get; private set; }
+
+        //public bool CanSetValue {
+        //    get {
+        //        if (m_f_info != null) return true;
+        //        return m_p_info.GetSetMethod() != null;
+        //    }
+        //}
+
+        //public bool CanGetValue {
+        //    get {
+        //        if (m_f_info != null) return true;
+        //        return m_p_info.GetGetMethod() != null;
+        //    }
+        //}
 
         public object GetValue(object obj) {
             if (m_f_info != null) {
@@ -88,6 +92,8 @@ namespace STLib.Json
                 fp.m_f_info = v;
                 fp.Name = v.Name;
                 fp.Type = v.FieldType;
+                fp.CanGetValue = true;
+                fp.CanSetValue = true;
                 lst.Add(fp);
             }
             foreach (var v in ps) {
@@ -95,6 +101,14 @@ namespace STLib.Json
                 fp.m_p_info = v;
                 fp.Name = v.Name;
                 fp.Type = v.PropertyType;
+                fp.CanGetValue = v.GetGetMethod() != null;
+                fp.CanSetValue = v.GetSetMethod() != null;
+                if (fp.CanGetValue) {
+                    fp.CanGetValue = v.GetGetMethod().GetParameters().Length == 0;
+                }
+                if (fp.CanSetValue) {
+                    fp.CanSetValue = v.GetSetMethod().GetParameters().Length == 0;
+                }
                 lst.Add(fp);
             }
             for (int i = 0; i < lst.Count; i++) {

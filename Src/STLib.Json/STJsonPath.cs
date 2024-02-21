@@ -55,24 +55,25 @@ namespace STLib.Json
                 Root = json,
                 Mode = model,
                 Path = new Stack<object>(),
-                CallbackReturn = callBack
+                //CallbackReturn = callBack
+                Callback = callBack
             };
             return this.Select(json, setting);
         }
 
-        public STJson Select(STJson json, STJsonPathCallBackVoid callBack) {
-            return this.Select(json, STJsonPathSelectMode.ItemOnly, callBack);
-        }
+        //public STJson Select(STJson json, STJsonPathCallBackVoid callBack) {
+        //    return this.Select(json, STJsonPathSelectMode.ItemOnly, callBack);
+        //}
 
-        public STJson Select(STJson json, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
-            SelectSetting setting = new SelectSetting() {
-                Root = json,
-                Mode = model,
-                Path = new Stack<object>(),
-                CallbackVoid = callBack
-            };
-            return this.Select(json, setting);
-        }
+        //public STJson Select(STJson json, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
+        //    SelectSetting setting = new SelectSetting() {
+        //        Root = json,
+        //        Mode = model,
+        //        Path = new Stack<object>(),
+        //        CallbackVoid = callBack
+        //    };
+        //    return this.Select(json, setting);
+        //}
 
         private STJson Select(STJson json, SelectSetting setting) {
             STJson jsonResult = STJson.CreateArray();

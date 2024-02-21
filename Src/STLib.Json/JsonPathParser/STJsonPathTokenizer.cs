@@ -229,7 +229,7 @@ namespace STLib.Json
         }
 
         private static STJsonPathToken GetString(string strText, int nIndex) {
-            char ch_last = '\0';
+            //char ch_last = '\0';
             STJsonPathToken token = new STJsonPathToken() {
                 Index = nIndex,
                 Type = STJsonPathTokenType.String
@@ -240,11 +240,19 @@ namespace STLib.Json
             }
             for (int i = nIndex + 1; i < strText.Length; i++) {
                 var ch = strText[i];
-                if (ch == ch_start && ch_last != '\\') {
+                if (ch == '\\') {
+                    i++;
+                    continue;
+                }
+                if (ch == ch_start) {
                     token.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
                     return token;
                 }
-                ch_last = ch;
+                //if (ch == ch_start && ch_last != '\\') {
+                //    token.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
+                //    return token;
+                //}
+                //ch_last = ch;
             }
             throw new STJsonPathParseException(nIndex, "Can not get a string. Index: " + nIndex);
         }

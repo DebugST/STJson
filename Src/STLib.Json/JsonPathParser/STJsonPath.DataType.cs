@@ -8,24 +8,32 @@ namespace STLib.Json
         ItemOnly, ItemWithPath, KeepStructure
     }
 
-    public struct STJsonPathCallBackResult
+    public class STJsonPathCallBackArgs
     {
-        public bool Selected;
-        public STJson Json;
-
-        public STJsonPathCallBackResult(bool selected, STJson json) {
-            this.Selected = selected;
-            this.Json = json;
-        }
+        public bool Selected { get; set; }
+        public STJson Path { get; internal set; }
+        public STJson Json { get; set; }
     }
+
+    //public struct STJsonPathCallBackResult
+    //{
+    //    public bool Selected;
+    //    public STJson Json;
+
+    //    public STJsonPathCallBackResult(bool selected, STJson json) {
+    //        this.Selected = selected;
+    //        this.Json = json;
+    //    }
+    //}
 
     public struct SelectSetting
     {
         public STJson Root;
         public STJsonPathSelectMode Mode;
         public Stack<object> Path;
-        public STJsonPathCallBackVoid CallbackVoid;
-        public STJsonPathCallBack CallbackReturn;
+        //public STJsonPathCallBackVoid CallbackVoid;
+        //public STJsonPathCallBack CallbackReturn;
+        public STJsonPathCallBack Callback;
 
         public static SelectSetting Create() {
             return new SelectSetting() {
@@ -34,8 +42,10 @@ namespace STLib.Json
         }
     }
 
-    public delegate void STJsonPathCallBackVoid(STJson path, STJson json);
-    public delegate STJsonPathCallBackResult STJsonPathCallBack(STJson path, STJson json);
+
+    public delegate void STJsonPathCallBack(STJsonPathCallBackArgs args);
+    //public delegate void STJsonPathCallBackVoid(STJson path, STJson json);
+    //public delegate STJsonPathCallBackResult STJsonPathCallBack(STJson path, STJson json);
     public delegate STJson STJsonPathCustomFuncHander(STJsonPathExpFuncArg[] args);
 
     public enum STJsonPathExpFuncArgType

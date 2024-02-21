@@ -1,0 +1,25 @@
+﻿Fixed JsonPath error for [?()]
+Fixed some string serialization cannot be parsed in other languages.
+
+[1.0.4][2023-11-27]
+--------------------------------------------------
+Fixed parsing string error for ["....\\"]
+Fixed parsing number error for [12E-12]
+Changed STJsonPathCallBack
+
+[1.0.3][2023-11-10]
+--------------------------------------------------
+Fixed DateTime type sorting error.
+Fixed parsing scientific notation string error.
+Fixed STJson.GetValue<object>() error.
+
+[1.0.1][2023-07-24]
+--------------------------------------------------
+Fixed STJson.GetValue<T>() error.
+
+[1.0.0][2023-06-04]
+--------------------------------------------------
+Publish project.
+Support Json serialization and deserialization.
+Support JsonPath syntax.
+Simple data aggregation processing.

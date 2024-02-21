@@ -38,6 +38,9 @@ namespace STLib.Json
             var fps = FPInfo.GetFPInfo(t);// t.GetProperties();
             foreach (var p in fps) {
                 if (json[p.KeyName] == null) continue;
+                if (!p.CanSetValue) {
+                    continue;
+                }
                 switch (serilizaModel) {
                     case STJsonSerilizaMode.All:
                         break;

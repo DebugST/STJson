@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using ME = STLib.Json.STJsonTokenizer;
@@ -110,24 +111,46 @@ namespace STLib.Json
         }
 
         private static Token GetNumber(string strText, int nIndex) {
-            bool bDot = false;
+            bool bDot = false, bE = false;
             Token token = new Token() {
                 Index = nIndex,
                 Type = TokenType.Long
             };
             for (int i = nIndex; i < strText.Length; i++) {
                 var c = strText[i];
-                if (c == '-') {
+                if (c == '-') {                 // -123
                     if (i != nIndex) {
                         throw new STJsonParseException(i, "Invalid char. Index: " + i);
                     }
                     continue;
                 }
-                if (c == '.') {
-                    if (bDot || i == nIndex || (strText[nIndex] == '-' && i == nIndex + 1)) {
+                if (c == '.') {                 // 1.23
+                    if (bDot || bE || i == nIndex || strText[i - 1] == '-') {
                         throw new STJsonParseException(i, "Invalid char. Index: " + i);
                     }
                     bDot = true;
+                    token.Type = TokenType.Double;
+                    continue;
+                }
+                if (c == 'E' || c == 'e') {     // 12E+3 Regex:-?\d+(\.\d+)?E[+-]?(\d+)
+                    if (bE || i == nIndex || strText[i - 1] == '-' || strText[i - 1] == '.') {
+                        throw new STJsonParseException(i, "Invalid char. Index: " + i);
+                    }
+                    if (i + 2 >= strText.Length) {
+                        throw new STJsonParseException(i, "Invalid char. Index: " + i);
+                    }
+                    c = strText[++i];
+                    if (c == '-' || c == '+') { // E+ | E-
+                        c = strText[++i];
+                    }
+                    //if (strText[++i] != '+') { // E+
+                    //    throw new STJsonParseException(i + 1, "Invalid char. Index: " + (i + 1));
+                    //}
+                    bE = true;
+                    //c = strText[++i];
+                    if (c < '0' && '9' < c) {   // E+[0-9]
+                        throw new STJsonParseException(i + 2, "Invalid char. Index: " + (i + 2));
+                    }
                     token.Type = TokenType.Double;
                     continue;
                 }
@@ -152,7 +175,7 @@ namespace STLib.Json
         }
 
         private static Token GetString(string strText, int nIndex) {
-            char ch_last = '\0';
+            //char ch_last = '\0';
             Token token = new Token() {
                 Index = nIndex,
                 Type = TokenType.String
@@ -162,11 +185,20 @@ namespace STLib.Json
             }
             for (int i = nIndex + 1; i < strText.Length; i++) {
                 var ch = strText[i];
-                if (ch == '"' && ch_last != '\\') {
+                if (ch == '\\') {
+                    i++;
+                    continue;
+                }
+                if (ch == '"') {
                     token.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
                     return token;
                 }
-                ch_last = ch;
+                //if (ch_last == '\\') ch_last = '\0';
+                //if (ch == '"' && ch_last != '\\') {
+                //    token.Value = strText.Substring(nIndex + 1, i - nIndex - 1);
+                //    return token;
+                //}
+                //ch_last = ch;
             }
             throw new STJsonParseException(nIndex, "Can not get a string. Index: " + nIndex);
         }

@@ -17,6 +17,9 @@ namespace STLib.Json
                 return false;
             }
         }
+        public bool IsNumber {
+            get { return this.ValueType == STJsonValueType.Long || this.ValueType == STJsonValueType.Double; }
+        }
         public STJsonValueType ValueType { get; internal set; }
         public int Count {
             get {

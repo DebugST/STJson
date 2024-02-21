@@ -263,19 +263,38 @@ namespace STLib.Json
             if (string.IsNullOrEmpty(strText)) return strText;
             StringBuilder sb = new StringBuilder(strText.Length);
             for (int i = 0; i < strText.Length; i++) {
+                var ch = strText[i];
+                if (0x5D <= ch && ch <= 0x10FFFF) {
+                    sb.Append(ch);
+                    continue;
+                }
+                if (0x23 <= ch && ch <= 0x5B) {
+                    sb.Append(ch);
+                    continue;
+                }
+                if (0x20 <= ch && ch <= 0x21) {
+                    sb.Append(ch);
+                    continue;
+                }
                 switch (strText[i]) {
-                    case '\r': sb.Append("\\r"); continue;
-                    case '\n': sb.Append("\\n"); continue;
-                    case '\t': sb.Append("\\t"); continue;
-                    case '\0': sb.Append("\\0"); continue;
-                    case '\f': sb.Append("\\f"); continue;
-                    case '\b': sb.Append("\\b"); continue;
-                    case '\a': sb.Append("\\a"); continue;
-                    case '\v': sb.Append("\\v"); continue;
                     case '\"': sb.Append("\\\""); continue;
                     case '\\': sb.Append("\\\\"); continue;
+                    case '\b': sb.Append("\\b"); continue;
+                    case '\f': sb.Append("\\f"); continue;
+                    case '\n': sb.Append("\\n"); continue;
+                    case '\r': sb.Append("\\r"); continue;
+                    case '\t': sb.Append("\\t"); continue;
+                    //case '\0': sb.Append("\\0"); continue;
+                    //case '\a': sb.Append("\\a"); continue;
+                    //case '\v': sb.Append("\\v"); continue;
+                    //case '\x7F': sb.Append("\\u007F"); continue;
                     default:
-                        sb.Append(strText[i]);
+                        //if (strText[i] < 32) {
+                        //    sb.Append("\\x" + ((int)strText[i]).ToString("X4"));
+                        //} else {
+                        //    sb.Append(strText[i]);
+                        //}
+                        sb.Append("\\u" + ((int)ch).ToString("X4"));
                         continue;
                 }
             }

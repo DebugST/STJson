@@ -129,6 +129,7 @@ namespace STLib.Json
             var json_result = STJson.CreateArray();
             SelectSetting setting = new SelectSetting() {
                 Root = jsonRoot,
+                Path = new Stack<object>(),
                 Mode = STJsonPathSelectMode.ItemOnly
             };
             STJsonPath.GetSTJsons(token.PathItems, 0, jsonCurrent, setting, json_result);

@@ -8,6 +8,7 @@ namespace STLib.Json
 {
     internal class ObjectToString
     {
+        private static Type m_type_json = typeof(STJson);
         private static Type m_type_attr_stjson = typeof(STJsonAttribute);
 
         public static void Get(StringBuilder sb, object obj, STJsonSetting setting) {
@@ -16,6 +17,10 @@ namespace STLib.Json
                 return;
             }
             var t = obj.GetType();
+            if (t == m_type_json) {
+                sb.Append(obj.ToString());
+                return;
+            }
             bool bProcessed = true;
             STJsonConverter converter = STJson.GetConverter(t);
             if (converter != null) {
@@ -96,6 +101,9 @@ namespace STLib.Json
             }
             sb.Append('{');
             foreach (var p in fps) {
+                if (!p.CanGetValue) {
+                    continue;
+                }
                 switch (serilizaModel) {
                     case STJsonSerilizaMode.All:
                         break;

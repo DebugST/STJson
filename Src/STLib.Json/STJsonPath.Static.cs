@@ -149,7 +149,7 @@ namespace STLib.Json
             switch (item.Type) {
                 case STJsonPathItem.ItemType.Root:
                 case STJsonPathItem.ItemType.Current:
-                    setting.Path.Push(item.Type == STJsonPathItem.ItemType.Root ? "$" : "@");
+                    setting.Path.Push(item.Type == STJsonPathItem.ItemType.Root ? "$" : "@");  // TODO: Path = null
                     ME.GetSTJsons(
                         items,
                         nIndex + 1,
@@ -202,7 +202,7 @@ namespace STLib.Json
                     break;
                 case STJsonPathItem.ItemType.Slice:
                     if (jsonCurrent == null) return;
-                    if (jsonCurrent.ValueType != STJsonValueType.Array) {
+                    if (jsonCurrent.ValueType != STJsonValueType.Array || jsonCurrent.Count == 0) {
                         return;
                     }
                     if (nIndexSliceL < 0) nIndexSliceL = jsonCurrent.Count + nIndexSliceL;
@@ -303,24 +303,41 @@ namespace STLib.Json
                     }
                     break;
             }
-            if (setting.CallbackReturn != null || setting.CallbackVoid != null) {
+            if (setting.Callback != null){
                 if (jsonPath.Count == 0) {
                     foreach (var v in setting.Path.Reverse()) {
                         jsonPath.Append(v);
                     }
                 }
-            }
-            if (setting.CallbackVoid != null) {
-                setting.CallbackVoid(jsonPath, item);
-                return;
-            }
-            if (setting.CallbackReturn != null) {
-                var cbr = setting.CallbackReturn(jsonPath, item);
-                if (!cbr.Selected) {
+                var arg = new STJsonPathCallBackArgs() {
+                    Selected = true,
+                    Path = jsonPath,
+                    Json = item
+                };
+                setting.Callback(arg);
+                if (!arg.Selected) {
                     return;
                 }
-                item = cbr.Json;
+                item = arg.Json;
             }
+            //if (setting.CallbackReturn != null || setting.CallbackVoid != null) {
+            //    if (jsonPath.Count == 0) {
+            //        foreach (var v in setting.Path.Reverse()) {
+            //            jsonPath.Append(v);
+            //        }
+            //    }
+            //}
+            //if (setting.CallbackVoid != null) {
+            //    setting.CallbackVoid(jsonPath, item);
+            //    return;
+            //}
+            //if (setting.CallbackReturn != null) {
+            //    var cbr = setting.CallbackReturn(jsonPath, item);
+            //    if (!cbr.Selected) {
+            //        return;
+            //    }
+            //    item = cbr.Json;
+            //}
             switch (setting.Mode) {
                 case STJsonPathSelectMode.ItemOnly:
                     jsonOut.Append(item);
@@ -338,11 +355,15 @@ namespace STLib.Json
         internal static STJson CreatePathJson(STJson value, List<STJsonPathItem> items) {
             STJson jsonOut = new STJson();
             Stack<object> stackPath = new Stack<object>();
-            ME.CreatePathJson((p, j) => {
-                return new STJsonPathCallBackResult() {
-                    Selected = true,
-                    Json = value
-                };
+            //ME.CreatePathJson((p, j) => {
+            //    return new STJsonPathCallBackResult() {
+            //        Selected = true,
+            //        Json = value
+            //    };
+            //}, stackPath, items, 0, jsonOut);
+            ME.CreatePathJson((arg) => {
+                arg.Selected = true;
+                arg.Json = value;
             }, stackPath, items, 0, jsonOut);
             return jsonOut;
         }
@@ -360,13 +381,18 @@ namespace STLib.Json
                 foreach (var v in stackPath.Reverse()) {
                     jsonPath.Append(v);
                 }
-                var ret = callBack(jsonPath, null);
-                if (!ret.Selected) {
+                var arg = new STJsonPathCallBackArgs() {
+                    Selected = true,
+                    Path = jsonPath
+                };
+                callBack(arg);
+                //var ret = callBack(jsonPath, null);
+                if (!arg.Selected) {
                     return;
                 }
                 jsonOut.Append(new STJson()
                        .SetItem("path", jsonPath)
-                       .SetItem("item", ret.Json)
+                       .SetItem("item", arg.Json)
                        );
                 return;
             }

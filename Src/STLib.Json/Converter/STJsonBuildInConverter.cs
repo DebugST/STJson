@@ -441,7 +441,8 @@ namespace STLib.Json
 
             public override STJson ObjectToJson(Type t, object obj, ref bool bProcessed) {
                 STJson json = new STJson();
-                json.SetValue((obj == null ? "1970-01-01T00:00:00.0000+00:00" : ((DateTime)obj).ToString("O")));
+                //json.SetValue((obj == null ? "1970-01-01T00:00:00.0000+00:00" : ((DateTime)obj).ToString("O")));
+                json.SetValue(Convert.ToDateTime(obj));
                 return json;
             }
 

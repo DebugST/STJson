@@ -22,8 +22,6 @@ namespace STLib.Json.Test
         }
 
         static void Main(string[] args) {
-            // Console.WriteLine(STJsonPath.GetBuildInFunctionList().ToString(4));
-
             DataTable dt = new DataTable();
             dt.Columns.Add("name");
             dt.Columns.Add("age", typeof(int));

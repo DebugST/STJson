@@ -160,7 +160,8 @@ namespace STLib.Json
                     return (T)value;
                 }
             }
-            return (T)j.Value;
+            return STJson.Deserialize<T>(j);
+            //return (T)j.Value;
         }
 
         public static T GetValue<T>(this STJson json, string strJsonPath, T defaultValue) {
@@ -205,7 +206,7 @@ namespace STLib.Json
                         return true;
                     }
                 }
-                result = (T)j.Value;
+                result = STJson.Deserialize<T>(j);// (T)j.Value;
                 return true;
             } catch {
                 return false;
@@ -339,9 +340,9 @@ namespace STLib.Json
             return new STJsonPath(strJsonPath).Select(json, STJsonPathSelectMode.ItemOnly, callBack);
         }
 
-        public static STJson Select(this STJson json, string strJsonPath, STJsonPathCallBackVoid callBack) {
-            return new STJsonPath(strJsonPath).Select(json, STJsonPathSelectMode.ItemOnly, callBack);
-        }
+        //public static STJson Select(this STJson json, string strJsonPath, STJsonPathCallBackVoid callBack) {
+        //    return new STJsonPath(strJsonPath).Select(json, STJsonPathSelectMode.ItemOnly, callBack);
+        //}
 
         public static STJson Select(this STJson json, string strJsonPath, STJsonPathSelectMode model) {
             return new STJsonPath(strJsonPath).Select(json, model, null);
@@ -351,9 +352,9 @@ namespace STLib.Json
             return new STJsonPath(strJsonPath).Select(json, model, callBack);
         }
 
-        public static STJson Select(this STJson json, string strJsonPath, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
-            return new STJsonPath(strJsonPath).Select(json, model, callBack);
-        }
+        //public static STJson Select(this STJson json, string strJsonPath, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
+        //    return new STJsonPath(strJsonPath).Select(json, model, callBack);
+        //}
 
         public static STJson Select(this STJson json, STJsonPath jsonPath) {
             return jsonPath.Select(json, STJsonPathSelectMode.ItemWithPath, null);
@@ -363,9 +364,9 @@ namespace STLib.Json
             return jsonPath.Select(json, STJsonPathSelectMode.ItemOnly, callBack);
         }
 
-        public static STJson Select(this STJson json, STJsonPath jsonPath, STJsonPathCallBackVoid callBack) {
-            return jsonPath.Select(json, STJsonPathSelectMode.ItemOnly, callBack);
-        }
+        //public static STJson Select(this STJson json, STJsonPath jsonPath, STJsonPathCallBackVoid callBack) {
+        //    return jsonPath.Select(json, STJsonPathSelectMode.ItemOnly, callBack);
+        //}
 
         public static STJson Select(this STJson json, STJsonPath jsonPath, STJsonPathSelectMode model) {
             return jsonPath.Select(json, model, null);
@@ -375,9 +376,9 @@ namespace STLib.Json
             return jsonPath.Select(json, model, callBack);
         }
 
-        public static STJson Select(this STJson json, STJsonPath jsonPath, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
-            return jsonPath.Select(json, model, callBack);
-        }
+        //public static STJson Select(this STJson json, STJsonPath jsonPath, STJsonPathSelectMode model, STJsonPathCallBackVoid callBack) {
+        //    return jsonPath.Select(json, model, callBack);
+        //}
 
 
         public static STJson SelectFirst(this STJson json, string strJsonPath) {
@@ -619,7 +620,7 @@ namespace STLib.Json
                                 d_temp = item.GetValue<bool>() ? 1 : 0;
                                 break;
                             case STJsonValueType.Datetime:
-                                d_temp = Convert.ToDouble(item.GetValue<DateTime>());
+                                d_temp = Convert.ToDouble(item.GetValue<DateTime>().Ticks);
                                 break;
                             case STJsonValueType.String:
                                 d_temp = item.Value == null ? 0 : item.Value.ToString().Length;
@@ -882,10 +883,7 @@ namespace STLib.Json
                     if (json_item == null) {
                         continue;
                     }
-                    if (json_item.ValueType != STJsonValueType.Long) {
-                        continue;
-                    }
-                    if (json_item.ValueType != STJsonValueType.Double) {
+                    if (json_item.ValueType != STJsonValueType.Long && json_item.ValueType != STJsonValueType.Double) {
                         continue;
                     }
                     lst_counter[i]++;
