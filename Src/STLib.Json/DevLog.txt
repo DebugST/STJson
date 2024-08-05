@@ -1,4 +1,15 @@
-﻿Fixed JsonPath error for [?()]
+﻿[3.0.0][2024-08-02]
+--------------------------------------------------
+Add Json5 support.
+Add STJsonReader/Writer.
+Add STJsonCreator.
+Add STJson.ToString(TextWriter).
+Optimize STJson.Sort().
+Optimize some STJsonPath built-in functions.
+
+[2.0.0][2024-02-14]
+--------------------------------------------------
+Fixed JsonPath error for [?()]
 Fixed some string serialization cannot be parsed in other languages.
 
 [1.0.4][2023-11-27]

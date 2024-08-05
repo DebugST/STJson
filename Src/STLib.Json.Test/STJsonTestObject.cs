@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace STLib.Json.Test
 {
     public enum TestObjectEnum { Enum1, Enum2, Enum3 }
 
-    [STJson(STJsonSerilizaMode.All)]
+    [STJson(STJsonSerializeMode.All)]
     public class TestObject
     {
         private string m_private_string = "private_string_obj";
