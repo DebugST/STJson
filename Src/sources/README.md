@@ -12,28 +12,28 @@ Unlike other `Json` libraries, `STJson` not has objects similar to `JObject` and
 
 ```cs
 var json_1 = new STJson();
-Console.WriteLine("[json_1] - " + json_1.IsNullObject + " - " + json_1.ValueType);
+Console.WriteLine("[json_1] - " + json_1.IsNullValue + " - " + json_1.ValueType);
 
 var json_2 = STJson.New();
 json_2.SetItem("key", "value");
-Console.WriteLine("[json_2] - " + json_2.IsNullObject + " - " + json_2.ValueType);
+Console.WriteLine("[json_2] - " + json_2.IsNullValue + " - " + json_2.ValueType);
 
 var json_3 = new STJson();
 json_3.Append(1, 2, 3);
-Console.WriteLine("[json_3] - " + json_3.IsNullObject + " - " + json_3.ValueType);
+Console.WriteLine("[json_3] - " + json_3.IsNullValue + " - " + json_3.ValueType);
 
 var json_4 = new STJson();
 json_4.SetValue(DateTime.Now);
-Console.WriteLine("[json_4] - " + json_4.IsNullObject + " - " + json_4.ValueType);
+Console.WriteLine("[json_4] - " + json_4.IsNullValue + " - " + json_4.ValueType);
 
 var json_5 = STJson.CreateArray();          // made by static function
-Console.WriteLine("[json_5] - " + json_5.IsNullObject + " - " + json_5.ValueType);
+Console.WriteLine("[json_5] - " + json_5.IsNullValue + " - " + json_5.ValueType);
 
 var json_6 = STJson.CreateObject();         // made by static function
-Console.WriteLine("[json_6] - " + json_6.IsNullObject + " - " + json_6.ValueType);
+Console.WriteLine("[json_6] - " + json_6.IsNullValue + " - " + json_6.ValueType);
 
 var json_7 = STJson.FromObject(12);         // made by static function
-Console.WriteLine("[json_3] - " + json_7.IsNullObject + " - " + json_7.ValueType);
+Console.WriteLine("[json_3] - " + json_7.IsNullValue + " - " + json_7.ValueType);
 /*******************************************************************************
  *                                [output]                                     *
  *******************************************************************************/
