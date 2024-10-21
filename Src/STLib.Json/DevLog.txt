@@ -1,4 +1,9 @@
-﻿[3.0.0][2024-08-02]
+﻿[3.0.1][2024-10-21]
+--------------------------------------------------
+Fixed empty object to string error.
+Optimize some code.
+
+[3.0.0][2024-08-02]
 --------------------------------------------------
 Add Json5 support.
 Add STJsonReader/Writer.

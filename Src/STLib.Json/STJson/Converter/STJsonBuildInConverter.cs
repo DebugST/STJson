@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data;
 using System.Drawing;
 
@@ -8,34 +9,40 @@ namespace STLib.Json
 {
     internal class STJsonBuildInConverter
     {
-        private static Dictionary<int, STJsonConverter> m_dic_type_map;
+        //private static Dictionary<int, STJsonConverter> m_dic_type_map;
+        private static IDictionary<int, STJsonConverter> m_dic_type_map;
 
         static STJsonBuildInConverter()
         {
-            m_dic_type_map = new Dictionary<int, STJsonConverter>();
-            m_dic_type_map.Add(typeof(byte).GetHashCode(), new ByteConverter());
-            m_dic_type_map.Add(typeof(sbyte).GetHashCode(), new SByteConverter());
-            m_dic_type_map.Add(typeof(short).GetHashCode(), new ShortConverter());
-            m_dic_type_map.Add(typeof(ushort).GetHashCode(), new UShortConverter());
-            m_dic_type_map.Add(typeof(int).GetHashCode(), new IntConverter());
-            m_dic_type_map.Add(typeof(uint).GetHashCode(), new UIntConverter());
-            m_dic_type_map.Add(typeof(long).GetHashCode(), new LongConverter());
-            m_dic_type_map.Add(typeof(ulong).GetHashCode(), new ULongConverter());
-            m_dic_type_map.Add(typeof(float).GetHashCode(), new FloatConverter());
-            m_dic_type_map.Add(typeof(double).GetHashCode(), new DoubleConverter());
-            m_dic_type_map.Add(typeof(decimal).GetHashCode(), new DecimalConverter());
-            m_dic_type_map.Add(typeof(bool).GetHashCode(), new BoolConverter());
-            m_dic_type_map.Add(typeof(char).GetHashCode(), new CharConverter());
-            m_dic_type_map.Add(typeof(string).GetHashCode(), new StringConverter());
-            m_dic_type_map.Add(typeof(Point).GetHashCode(), new PointConverter());
-            m_dic_type_map.Add(typeof(PointF).GetHashCode(), new PointFConverter());
-            m_dic_type_map.Add(typeof(Size).GetHashCode(), new SizeConverter());
-            m_dic_type_map.Add(typeof(SizeF).GetHashCode(), new SizeFConverter());
-            m_dic_type_map.Add(typeof(Rectangle).GetHashCode(), new RectangleConverter());
-            m_dic_type_map.Add(typeof(RectangleF).GetHashCode(), new RectangleFConverter());
-            m_dic_type_map.Add(typeof(Color).GetHashCode(), new ColorConverter());
-            m_dic_type_map.Add(typeof(DateTime).GetHashCode(), new DateTimeConverter());
-            m_dic_type_map.Add(typeof(DataTable).GetHashCode(), new DateTableConverter());
+            var m_dic = new Dictionary<int, STJsonConverter>();
+            m_dic.Add(typeof(byte).GetHashCode(), new ByteConverter());
+            m_dic.Add(typeof(sbyte).GetHashCode(), new SByteConverter());
+            m_dic.Add(typeof(short).GetHashCode(), new ShortConverter());
+            m_dic.Add(typeof(ushort).GetHashCode(), new UShortConverter());
+            m_dic.Add(typeof(int).GetHashCode(), new IntConverter());
+            m_dic.Add(typeof(uint).GetHashCode(), new UIntConverter());
+            m_dic.Add(typeof(long).GetHashCode(), new LongConverter());
+            m_dic.Add(typeof(ulong).GetHashCode(), new ULongConverter());
+            m_dic.Add(typeof(float).GetHashCode(), new FloatConverter());
+            m_dic.Add(typeof(double).GetHashCode(), new DoubleConverter());
+            m_dic.Add(typeof(decimal).GetHashCode(), new DecimalConverter());
+            m_dic.Add(typeof(bool).GetHashCode(), new BoolConverter());
+            m_dic.Add(typeof(char).GetHashCode(), new CharConverter());
+            m_dic.Add(typeof(string).GetHashCode(), new StringConverter());
+            m_dic.Add(typeof(Point).GetHashCode(), new PointConverter());
+            m_dic.Add(typeof(PointF).GetHashCode(), new PointFConverter());
+            m_dic.Add(typeof(Size).GetHashCode(), new SizeConverter());
+            m_dic.Add(typeof(SizeF).GetHashCode(), new SizeFConverter());
+            m_dic.Add(typeof(Rectangle).GetHashCode(), new RectangleConverter());
+            m_dic.Add(typeof(RectangleF).GetHashCode(), new RectangleFConverter());
+            m_dic.Add(typeof(Color).GetHashCode(), new ColorConverter());
+            m_dic.Add(typeof(DateTime).GetHashCode(), new DateTimeConverter());
+            m_dic.Add(typeof(DataTable).GetHashCode(), new DateTableConverter());
+#if NET35
+            m_dic_type_map = m_dic;// new IReadOnlyDictionary<int, STJsonConverter>(m_dic);
+#else
+            m_dic_type_map = new ReadOnlyDictionary<int, STJsonConverter>(m_dic);
+#endif
         }
 
         public static STJsonConverter Get(Type type)

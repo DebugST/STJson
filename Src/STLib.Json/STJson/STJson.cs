@@ -571,11 +571,11 @@ namespace STLib.Json
                     //    writer.Write("null");
                     //    break;
                     //}
-                    writer.Write('{');
                     if (m_dic_values.Count == 0) {
                         writer.Write("{}");
                         break;
                     }
+                    writer.Write('{');
                     n_index = 0; n_len = m_dic_values.Count;
                     foreach (var v in m_dic_values) {
                         writer.Write(n_space_count == 0 ? "\"" : ("\r\n" + str_space_inc + "\""));
