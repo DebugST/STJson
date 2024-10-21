@@ -482,7 +482,7 @@ namespace STLib.Json
 
         public STJson Insert(int n_index, STJson json)
         {
-            if (this.ValueType != STJsonValueType.Object) {
+            if (this.ValueType != STJsonValueType.Array) {
                 throw new STJsonException("Current STJson is not Array.");
             }
             m_lst_values.Insert(n_index, json);

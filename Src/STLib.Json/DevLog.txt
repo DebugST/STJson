@@ -1,5 +1,6 @@
 ﻿[3.0.1][2024-10-21]
 --------------------------------------------------
+Fixed STJson.Insert() error.
 Fixed empty object to string error.
 Optimize some code.
 

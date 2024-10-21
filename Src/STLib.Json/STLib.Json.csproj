@@ -36,6 +36,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>[3.0.1][2024-10-21]
 --------------------------------------------------
+Fixed STJson.Insert() error.
 Fixed empty object to string error.
 Optimize some code.
 
@@ -77,7 +78,7 @@ Support JsonPath syntax.
 Simple data aggregation processing.</PackageReleaseNotes>
     <Copyright>Copyright 2022 DebugST</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>3.0.1</Version>
+    <Version>3.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

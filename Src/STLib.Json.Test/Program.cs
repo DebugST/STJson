@@ -24,7 +24,6 @@ namespace STLib.Json.Test
     {
         static void Main(string[] args)
         {
-            Console.WriteLine(STJson.Deserialize("{a:{}}").ToString());
             //var obj_test = STJsonTestObject.CreateTestObject();
             var type = typeof(UserInfo);
             var obj_test = new UserInfo()
